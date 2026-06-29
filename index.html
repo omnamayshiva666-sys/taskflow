@@ -1,0 +1,1931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Task Management System</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+html,body{height:100%;font-family:'Inter','Segoe UI',Arial,sans-serif;background:#F0F4FF;color:#1E293B;font-size:14px}
+:root{
+  --bg:#F0F4FF;--sl:#FFFFFF;--pn:#F8FAFF;--bd:#E2E8F0;
+  --in:#6366F1;--in2:#4F46E5;--mu:#94A3B8;--tx:#1E293B;
+  --gr1:#6366F1;--gr2:#8B5CF6;
+}
+button{cursor:pointer;font-family:inherit}
+
+/* ── SIDEBAR ── */
+.app{display:flex;height:100vh;overflow:hidden}
+.sb{width:240px;background:linear-gradient(180deg,#1E1B4B 0%,#312E81 50%,#1E1B4B 100%);display:flex;flex-direction:column;flex-shrink:0;box-shadow:4px 0 20px rgba(99,102,241,.2)}
+.sb-logo{padding:20px 16px 16px;border-bottom:1px solid rgba(255,255,255,.1)}
+.sb-logo-wrap{display:flex;align-items:center;gap:10px}
+.sb-logo-icon{width:36px;height:36px;background:linear-gradient(135deg,#6366F1,#8B5CF6);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.sb-logo h1{font-size:13px;font-weight:700;color:#fff;line-height:1.3}
+.sb-logo p{font-size:10px;color:rgba(255,255,255,.5);margin-top:2px}
+.sb-nav{padding:10px 8px;flex:1;overflow-y:auto}
+.sb-sec{font-size:9px;font-weight:700;color:rgba(255,255,255,.35);letter-spacing:.1em;padding:14px 10px 5px;text-transform:uppercase}
+.sb-btn{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;font-size:13px;color:rgba(255,255,255,.6);border:none;background:none;width:100%;text-align:left;margin-bottom:2px;cursor:pointer;transition:all .15s}
+.sb-btn:hover{background:rgba(255,255,255,.08);color:#fff}
+.sb-btn.on{background:linear-gradient(135deg,rgba(99,102,241,.4),rgba(139,92,246,.3));color:#fff;font-weight:600;box-shadow:0 2px 8px rgba(99,102,241,.3)}
+.sb-icon{font-size:16px;width:20px;text-align:center;flex-shrink:0}
+.sb-foot{padding:12px;border-top:1px solid rgba(255,255,255,.1)}
+.sb-user{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:rgba(255,255,255,.08);cursor:default}
+.sb-uname{font-size:12px;font-weight:600;color:#fff}
+.sb-urole{font-size:10px;color:rgba(255,255,255,.5);text-transform:capitalize}
+
+/* ── AVATAR ── */
+.av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.av-a{background:linear-gradient(135deg,#6366F1,#4F46E5);color:#fff}
+.av-m{background:linear-gradient(135deg,#F59E0B,#D97706);color:#fff}
+.av-u{background:linear-gradient(135deg,#10B981,#059669);color:#fff}
+
+/* ── TOPBAR ── */
+.mn{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.tb{height:58px;background:#fff;border-bottom:1px solid var(--bd);display:flex;align-items:center;padding:0 24px;gap:12px;flex-shrink:0;box-shadow:0 1px 8px rgba(0,0,0,.06)}
+.tb h2{font-size:16px;font-weight:700;color:var(--tx);flex:1}
+.tb-badge{background:linear-gradient(135deg,#6366F1,#8B5CF6);color:#fff;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:600}
+.pg{flex:1;overflow-y:auto;padding:20px 24px}
+.sc{display:none}.sc.on{display:block}
+
+/* ── BUTTONS ── */
+.btn{padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;border:none;display:inline-flex;align-items:center;gap:5px;cursor:pointer;transition:all .15s}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-p{background:linear-gradient(135deg,#6366F1,#4F46E5);color:#fff;box-shadow:0 2px 8px rgba(99,102,241,.3)}
+.btn-p:hover{box-shadow:0 4px 14px rgba(99,102,241,.4);transform:translateY(-1px)}
+.btn-g{background:#fff;border:1px solid var(--bd);color:#64748B}.btn-g:hover{border-color:#6366F1;color:#6366F1}
+.btn-d{background:#FEF2F2;color:#EF4444;border:1px solid #FECACA}.btn-d:hover{background:#FEE2E2}
+.btn-s{background:#F0FDF4;color:#10B981;border:1px solid #BBF7D0}
+.btn-meet{background:linear-gradient(135deg,#10B981,#059669);color:#fff;box-shadow:0 2px 6px rgba(16,185,129,.3)}
+.btn-meet:hover{box-shadow:0 4px 12px rgba(16,185,129,.4);transform:translateY(-1px)}
+.btn-sm{padding:5px 10px;font-size:11px;border-radius:6px}
+.btn-full{width:100%;justify-content:center;padding:11px}
+
+/* ── FORMS ── */
+.fg{margin-bottom:16px}
+.fl{font-size:11px;font-weight:600;color:#64748B;margin-bottom:6px;display:block;text-transform:uppercase;letter-spacing:.05em}
+.fi{width:100%;background:#fff;border:1.5px solid var(--bd);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--tx);outline:none;font-family:inherit;transition:border-color .15s}
+.fi:focus{border-color:#6366F1;box-shadow:0 0 0 3px rgba(99,102,241,.1)}
+textarea.fi{resize:vertical;min-height:80px}
+select.fi option{background:#fff;color:var(--tx)}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+
+/* ── CARDS ── */
+.card{background:#fff;border:1px solid var(--bd);border-radius:12px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.05)}
+.card-h{display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--bd);gap:10px;flex-wrap:wrap}
+.card-t{font-size:14px;font-weight:700;color:var(--tx);flex:1}
+.card-b{padding:16px}
+
+/* ── STATS ── */
+.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.st{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:16px;box-shadow:0 1px 6px rgba(0,0,0,.04);transition:box-shadow .15s}
+.st:hover{box-shadow:0 4px 16px rgba(0,0,0,.1)}
+.st-l{font-size:10px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px}
+.st-v{font-size:28px;font-weight:800;color:var(--tx)}
+.st-s{font-size:11px;color:var(--mu);margin-top:4px}
+.st-b{height:4px;background:#F1F5F9;border-radius:2px;margin-top:12px}
+.st-f{height:100%;border-radius:2px;transition:width .5s}
+
+/* ── TABLE ── */
+table{width:100%;border-collapse:collapse}
+thead tr{background:#F8FAFF}
+th{padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid var(--bd);white-space:nowrap}
+td{padding:12px 14px;font-size:12px;color:var(--tx);border-bottom:1px solid #F1F5F9;vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#F8FAFF}
+.tn{font-weight:600;color:var(--tx);margin-bottom:2px}
+.tm{font-size:11px;color:var(--mu)}
+
+/* ── PILLS ── */
+.pill{padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;white-space:nowrap}
+.p-daily{background:#EFF6FF;color:#3B82F6}
+.p-weekly{background:#EEF2FF;color:#6366F1}
+.p-monthly{background:#FFFBEB;color:#D97706}
+.p-ott{background:#FFF1F2;color:#F43F5E}
+.p-yearly{background:#F5F3FF;color:#7C3AED}
+.p-pending{background:#FFFBEB;color:#D97706}
+.p-done{background:#F0FDF4;color:#16A34A}
+.p-inprog{background:#EEF2FF;color:#6366F1}
+.p-notdone{background:#FFF1F2;color:#E11D48}
+.p-hold{background:#FFF7ED;color:#EA580C}
+.p-admin{background:#EEF2FF;color:#6366F1}
+.p-manager{background:#FFFBEB;color:#D97706}
+.p-user{background:#F0FDF4;color:#16A34A}
+.pdot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle}
+
+/* ── FREQ GRID ── */
+.fgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:4px}
+.fopt{border:2px solid var(--bd);border-radius:10px;padding:10px 4px;text-align:center;cursor:pointer;font-size:11px;font-weight:600;color:#64748B;background:#fff;transition:all .15s}
+.fopt:hover{border-color:#6366F1;color:#6366F1;background:#EEF2FF}
+.fopt em{font-size:20px;display:block;margin-bottom:4px;font-style:normal}
+.fd{border-color:#3B82F6;background:#EFF6FF;color:#3B82F6}
+.fw{border-color:#6366F1;background:#EEF2FF;color:#6366F1}
+.fm{border-color:#D97706;background:#FFFBEB;color:#D97706}
+.fy{border-color:#7C3AED;background:#F5F3FF;color:#7C3AED}
+.fo{border-color:#F43F5E;background:#FFF1F2;color:#F43F5E}
+
+/* ── FILTER TABS ── */
+.ftabs{display:flex;gap:5px;flex-wrap:wrap}
+.ftab{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;border:1.5px solid var(--bd);color:#64748B;background:#fff;cursor:pointer;transition:all .15s}
+.ftab:hover{border-color:#6366F1;color:#6366F1;background:#EEF2FF}
+.ftab.on{background:#EEF2FF;border-color:#6366F1;color:#6366F1}
+
+/* ── MODAL ── */
+.mbg{position:fixed;inset:0;background:rgba(15,15,35,.6);backdrop-filter:blur(4px);z-index:500;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.mbg.on{opacity:1;pointer-events:all}
+.modal{background:#fff;border:1px solid var(--bd);border-radius:16px;padding:24px;width:500px;max-width:96vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15)}
+.mh{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.mh h2{font-size:16px;font-weight:700;color:var(--tx)}
+.mclose{background:none;border:none;color:var(--mu);font-size:20px;cursor:pointer;line-height:1}
+.mclose:hover{color:#1E293B}
+
+/* ── LOGIN ── */
+.lw{display:none;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#1E1B4B 0%,#312E81 40%,#1E1B4B 100%)}
+.lb{background:#fff;border-radius:20px;padding:40px 36px;width:380px;box-shadow:0 24px 64px rgba(0,0,0,.3)}
+.li{width:56px;height:56px;background:linear-gradient(135deg,#6366F1,#8B5CF6);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:26px;box-shadow:0 8px 20px rgba(99,102,241,.4)}
+.lerr{font-size:12px;color:#EF4444;margin-bottom:10px;display:none;background:#FFF1F2;padding:8px 12px;border-radius:6px}
+
+/* ── EMPLOYEES ── */
+.emp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;padding:4px}
+.emp-card{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:20px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.05);transition:all .2s}
+.emp-card:hover{box-shadow:0 8px 24px rgba(99,102,241,.15);transform:translateY(-2px);border-color:#C7D2FE}
+.emp-av{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;margin:0 auto 12px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.emp-name{font-size:14px;font-weight:700;color:var(--tx);margin-bottom:2px}
+.emp-id{font-size:11px;color:var(--mu);margin-bottom:4px}
+.emp-dept{font-size:12px;color:#6366F1;font-weight:600;margin-bottom:8px}
+.emp-role{margin-bottom:12px}
+.emp-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+.emp-stat{text-align:center}
+.emp-stat-v{display:block;font-size:16px;font-weight:700}
+.emp-stat-l{font-size:10px;color:var(--mu)}
+.emp-bar-wrap{height:5px;background:#F1F5F9;border-radius:3px;overflow:hidden;margin-top:6px}
+.emp-bar{height:100%;background:linear-gradient(90deg,#6366F1,#8B5CF6);border-radius:3px;transition:width .5s}
+.emp-actions{margin-top:12px;display:flex;gap:6px;justify-content:center}
+
+/* ── NOTICES ── */
+.notice-compose{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:0 1px 6px rgba(0,0,0,.04)}
+.notice-card{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.04);transition:box-shadow .15s}
+.notice-card:hover{box-shadow:0 4px 12px rgba(99,102,241,.1)}
+.notice-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.notice-body{font-size:13px;color:#334155;line-height:1.6;padding:10px 12px;background:#F8FAFF;border-radius:8px;border-left:3px solid #6366F1}
+
+/* ── MISC ── */
+.empty{text-align:center;padding:40px;color:var(--mu);font-size:13px}
+.loader{display:inline-block;width:14px;height:14px;border:2px solid rgba(99,102,241,.3);border-top-color:#6366F1;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.lov{position:fixed;inset:0;background:rgba(15,15,35,.6);backdrop-filter:blur(4px);z-index:999;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+.lov-txt{font-size:14px;color:#fff}
+.toast{position:fixed;bottom:20px;right:20px;background:#1E293B;border-radius:10px;padding:12px 18px;font-size:13px;color:#fff;z-index:9999;transform:translateY(60px);opacity:0;transition:all .25s;max-width:300px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.toast.on{transform:translateY(0);opacity:1}
+.toast.ok{background:#059669}
+.toast.err{background:#DC2626}
+.pg-grid{display:grid;grid-template-columns:280px 1fr;gap:16px}
+.section-hdr{font-size:12px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px}
+/* ── STICKY THEAD ── */
+.tbl-wrap{overflow-x:auto;overflow-y:auto;max-height:60vh}
+.tbl-wrap table thead th{
+  position:sticky;top:0;z-index:10;
+  background:#F8FAFF;
+  box-shadow:0 2px 0 #E2E8F0;
+}
+/* ── SORTABLE/FILTER HEADER ── */
+.th-wrap{display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none;white-space:nowrap}
+.th-wrap:hover{color:#6366F1}
+.th-sort{font-size:10px;color:#94A3B8}
+.th-filter-btn{background:none;border:none;cursor:pointer;font-size:10px;color:#94A3B8;padding:1px 3px;border-radius:3px}
+.th-filter-btn:hover{background:#EEF2FF;color:#6366F1}
+.th-flt-active{background:#EEF2FF;color:#6366F1;border-radius:3px}
+.col-flt-dd label:hover{background:#F8FAFF}
+/* Filter row below header */
+.flt-row td{padding:4px 6px;background:#F0F4FF;border-bottom:2px solid #C7D2FE}
+.flt-row select{width:100%;border:1px solid #C7D2FE;border-radius:5px;padding:3px 5px;font-size:11px;background:#fff;color:#334155;outline:none;cursor:pointer}
+.flt-row select:focus{border-color:#6366F1}
+.stat-clickable:hover .st-v{color:#6366F1}
+.stat-clickable{transition:all .2s}
+.col-flt-dd label:hover{background:#F8FAFF}
+/* Filter dropdown */
+.flt-drop{position:absolute;top:100%;left:0;background:#fff;border:1px solid #E2E8F0;border-radius:8px;
+  box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:100;min-width:160px;padding:6px;display:none}
+.flt-drop.open{display:block}
+.flt-drop input{width:100%;border:1px solid #E2E8F0;border-radius:5px;padding:5px 8px;font-size:12px;margin-bottom:6px;outline:none}
+.flt-drop input:focus{border-color:#6366F1}
+.flt-opt{padding:5px 8px;border-radius:5px;font-size:12px;cursor:pointer;color:#334155}
+.flt-opt:hover{background:#EEF2FF;color:#6366F1}
+.flt-opt.sel{background:#EEF2FF;color:#6366F1;font-weight:600}
+.flt-clear{font-size:11px;color:#EF4444;cursor:pointer;padding:4px 8px;display:block;text-align:center}
+th{position:relative}
+/* ── 3D POPUP ── */
+.popup-bg{position:fixed;inset:0;background:rgba(15,15,35,.65);backdrop-filter:blur(6px);z-index:2000;
+  display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+.popup-bg.show{opacity:1;pointer-events:all}
+.popup-box{background:#fff;border-radius:20px;padding:32px 36px;text-align:center;min-width:280px;
+  box-shadow:0 24px 60px rgba(0,0,0,.2), 0 0 0 1px rgba(255,255,255,.5);
+  transform:scale(.85) translateY(20px);transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;
+  opacity:0}
+.popup-bg.show .popup-box{transform:scale(1) translateY(0);opacity:1}
+.popup-icon{font-size:52px;margin-bottom:10px;display:block;animation:popIcon .4s ease .2s both}
+@keyframes popIcon{0%{transform:scale(0) rotate(-10deg)}70%{transform:scale(1.2) rotate(3deg)}100%{transform:scale(1) rotate(0)}}
+.popup-title{font-size:18px;font-weight:700;color:#1E293B;margin-bottom:6px}
+.popup-sub{font-size:13px;color:#64748B;margin-bottom:20px}
+.popup-btn{background:linear-gradient(135deg,#6366F1,#4F46E5);color:#fff;border:none;border-radius:10px;
+  padding:10px 28px;font-size:14px;font-weight:600;cursor:pointer;
+  box-shadow:0 4px 14px rgba(99,102,241,.4);transition:all .15s}
+.popup-btn:hover{box-shadow:0 6px 20px rgba(99,102,241,.5);transform:translateY(-1px)}
+/* Loading 3D */
+.lov3d{position:fixed;inset:0;background:rgba(15,15,35,.65);backdrop-filter:blur(6px);
+  z-index:1500;display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+.lov3d.show{display:flex}
+.spin3d{width:56px;height:56px;border-radius:50%;border:4px solid rgba(99,102,241,.2);
+  border-top:4px solid #6366F1;border-right:4px solid #8B5CF6;
+  animation:spin3d .8s linear infinite;box-shadow:0 0 20px rgba(99,102,241,.3)}
+@keyframes spin3d{to{transform:rotate(360deg)}}
+.lov3d-txt{font-size:14px;color:#fff;font-weight:500;letter-spacing:.3px}
+/* Clickable stat cards */
+.st{cursor:pointer}
+.st:hover{box-shadow:0 6px 20px rgba(99,102,241,.15);transform:translateY(-2px);border-color:#C7D2FE}
+
+@media(max-width:768px){
+  .sb{width:56px}
+  .sb-logo h1,.sb-logo p,.sb-label,.sb-sec,.sb-uname,.sb-urole{display:none}
+  .sb-btn{justify-content:center;padding:10px}
+  .sg{grid-template-columns:1fr 1fr}
+  .fr{grid-template-columns:1fr}
+  .pg-grid{grid-template-columns:1fr}
+  .emp-grid{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="lw" id="lw" style="display:flex">
+  <div class="lb">
+    <div class="li">📋</div>
+    <h1 style="font-size:22px;font-weight:800;color:#1E293B;text-align:center;margin-bottom:4px">Task Management</h1>
+    <p style="font-size:13px;color:#94A3B8;text-align:center;margin-bottom:28px">Sign in to your workspace</p>
+    <div class="fg"><label class="fl">Email Address</label><input class="fi" id="em" type="email" placeholder="you@company.com" autocomplete="username"></div>
+    <div class="fg"><label class="fl">Password</label><input class="fi" id="pw" type="password" placeholder="Enter your password" autocomplete="current-password"></div>
+    <div class="lerr" id="lerr"></div>
+    <button class="btn btn-p btn-full" id="lbtn" onclick="doLogin()" style="margin-top:4px;font-size:14px;padding:12px">Sign In →</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app" style="display:none">
+
+  <!-- SIDEBAR -->
+  <div class="sb">
+    <div class="sb-logo">
+      <div class="sb-logo-wrap">
+        <div class="sb-logo-icon">📋</div>
+        <div><h1>Task Management</h1><p id="sbsub">System</p></div>
+      </div>
+    </div>
+    <nav class="sb-nav">
+      <div class="sb-sec">Overview</div>
+      <button class="sb-btn on" data-pg="dash"><span class="sb-icon">🏠</span><span class="sb-label">Dashboard</span></button>
+      <button class="sb-btn" data-pg="mine"><span class="sb-icon">✅</span><span class="sb-label">My Tasks</span></button>
+      <button class="sb-btn" data-pg="notice"><span class="sb-icon">📢</span><span class="sb-label">Notices</span></button>
+      <button class="sb-btn" data-pg="emp"><span class="sb-icon">👥</span><span class="sb-label">Employees</span></button>
+      <div class="sb-sec" id="mgrSec" style="display:none">Manage</div>
+      <button class="sb-btn" data-pg="assign" id="navAssign" style="display:none"><span class="sb-icon">➕</span><span class="sb-label">Assign Task</span></button>
+      <button class="sb-btn" data-pg="bulk" id="navBulk" style="display:none"><span class="sb-icon">📦</span><span class="sb-label">Bulk Assign</span></button>
+      <button class="sb-btn" data-pg="all" id="navAll" style="display:none"><span class="sb-icon">📋</span><span class="sb-label">All Tasks</span></button>
+      <button class="sb-btn" data-pg="team" id="navTeam" style="display:none"><span class="sb-icon">📊</span><span class="sb-label">Team Stats</span></button>
+      <div class="sb-sec">Account</div>
+      <button class="sb-btn" data-pg="profile"><span class="sb-icon">👤</span><span class="sb-label">My Profile</span></button>
+    </nav>
+    <div class="sb-foot">
+      <div class="sb-user">
+        <div class="av" id="sbav"></div>
+        <div><div class="sb-uname" id="sbname">—</div><div class="sb-urole" id="sbrole">—</div></div>
+      </div>
+      <button class="btn btn-g btn-sm" style="width:100%;margin-top:8px;justify-content:center" onclick="doLogout()">↩ Sign Out</button>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="mn">
+    <div class="tb">
+      <h2 id="pgtitle">Dashboard</h2>
+      <div id="tbRight" style="display:flex;align-items:center;gap:8px">
+        <span class="tb-badge" id="tbBadge" style="display:none"></span>
+        <button class="btn btn-p btn-sm" id="topAdd" onclick="oModal('mTask')" style="display:none">+ Assign Task</button>
+      </div>
+    </div>
+    <div class="pg">
+
+      <!-- DASHBOARD -->
+      <div class="sc on" id="pgDash">
+        <div class="sg" id="statGrid"></div>
+        <!-- Stat filter result panel -->
+        <div id="statFilterPanel" style="display:none;margin-bottom:16px">
+          <div class="card">
+            <div class="card-h" style="justify-content:space-between">
+              <span class="card-t" id="statPanelTitle">Filtered Tasks</span>
+              <button class="btn btn-g btn-sm" onclick="closeStatPanel()">✕ Close</button>
+            </div>
+            <div class="tbl-wrap"><table>
+              <thead><tr>
+                <th><input type="checkbox" id="statChkAll" onchange="statToggleAll(this)"></th>
+                <th>Task</th><th>Dept</th><th>Type</th><th>Assigned To</th><th>Priority</th><th>Start</th><th>Due</th><th>Status</th><th>Timing</th>
+              </tr></thead>
+              <tbody id="statPanelBody"></tbody>
+            </table></div>
+            <div style="padding:12px 16px;border-top:1px solid #E2E8F0;display:flex;gap:8px;align-items:center">
+              <button class="btn btn-p btn-sm" onclick="bulkDoneFromPanel()">✅ Mark Selected Done</button>
+              <span style="font-size:12px;color:#64748B" id="statPanelCount"></span>
+            </div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+          <div class="card"><div class="card-h"><span class="card-t">📊 Tasks by Frequency</span></div><div class="card-b" id="freqChart"></div></div>
+          <div class="card"><div class="card-h"><span class="card-t">🕐 Recent Activity</span></div><div class="card-b" id="recentAct"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><span class="card-t">⚡ My Pending Tasks</span></div>
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>Task</th><th>Dept</th><th>Type</th><th>Priority</th><th>Start</th><th>Due</th><th>Action</th></tr></thead>
+            <tbody id="dashBody"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- MY TASKS -->
+      <div class="sc" id="pgMine">
+        <div class="card">
+          <div class="card-h">
+            <span class="card-t">My Tasks</span>
+            <button class="btn btn-g btn-sm" onclick="exportMyTasks()" style="margin-right:4px">⬇ Export CSV</button>
+            <button class="btn btn-g btn-sm" onclick="clearAllFilters('tblMine')" style="margin-right:4px;color:#EF4444;border-color:#FECACA">✕ Clear Filters</button>
+            <div class="ftabs" id="mineTabs">
+              <button class="ftab on" data-f="all">All</button>
+              <button class="ftab" data-f="daily">Daily</button>
+              <button class="ftab" data-f="weekly">Weekly</button>
+              <button class="ftab" data-f="monthly">Monthly</button>
+              <button class="ftab" data-f="yearly">Yearly</button>
+              <button class="ftab" data-f="ott">OTT</button>
+              <button class="ftab" data-f="pending">Pending</button>
+              <button class="ftab" data-f="in-progress">In Progress</button>
+              <button class="ftab" data-f="done">Done</button>
+            </div>
+          </div>
+          <div id="bulk_tblMine" style="display:none;padding:8px 14px;background:#EEF2FF;border-bottom:1px solid #C7D2FE;align-items:center;gap:10px">
+            <span style="font-size:12px;color:#4F46E5;font-weight:600" id="bulkCnt_tblMine">0 selected</span>
+            <button class="btn btn-p btn-sm" onclick="bulkMarkDone('tblMine')">✅ Mark Selected as Done</button>
+          </div>
+          <div class="tbl-wrap"><table>
+            <thead id="mineHead"></thead>
+            <tbody id="mineBody"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- NOTICES / ANNOUNCEMENTS -->
+      <div class="sc" id="pgNotice">
+        <div style="max-width:700px">
+          <div class="notice-compose" id="noticeCompose">
+            <div class="section-hdr">Post Announcement</div>
+            <div class="fg" style="margin-bottom:10px"><textarea class="fi" id="noticeInput" placeholder="Write an announcement, update or message for your team..."></textarea></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-p btn-sm" onclick="postNotice()">📢 Post Announcement</button>
+              <button class="btn btn-meet btn-sm" onclick="postMeetNotice()">📹 Share Meeting Link</button>
+            </div>
+          </div>
+          <div class="section-hdr">Team Announcements</div>
+          <div id="noticeList"></div>
+        </div>
+      </div>
+
+      <!-- EMPLOYEES -->
+      <div class="sc" id="pgEmp">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+          <input class="fi" id="empSearch" placeholder="🔍 Search employees..." style="max-width:280px" oninput="filterEmp(this.value)">
+          <select class="fi" id="empDeptFilter" style="max-width:180px" onchange="filterEmp(document.getElementById('empSearch').value)">
+            <option value="">All Departments</option>
+          </select>
+        </div>
+        <div class="emp-grid" id="empGrid"></div>
+      </div>
+
+      <!-- ASSIGN TASK -->
+      <div class="sc" id="pgAssign">
+        <div style="max-width:640px">
+          <div class="card card-b">
+            <div style="font-size:15px;font-weight:700;color:var(--tx);margin-bottom:18px">➕ Assign New Task</div>
+            <div class="fg"><label class="fl">Task Title *</label><input class="fi" id="at_title" placeholder="Enter task title..."></div>
+            <div class="fg"><label class="fl">Description</label><textarea class="fi" id="at_desc" placeholder="Describe the task..."></textarea></div>
+            <div class="fg">
+              <label class="fl">Frequency *</label>
+              <div class="fgrid">
+                <div class="fopt" data-freq="daily" onclick="pickF(this,'at')"><em>📅</em>Daily</div>
+                <div class="fopt" data-freq="weekly" onclick="pickF(this,'at')"><em>📆</em>Weekly</div>
+                <div class="fopt" data-freq="monthly" onclick="pickF(this,'at')"><em>🗓️</em>Monthly</div>
+                <div class="fopt" data-freq="yearly" onclick="pickF(this,'at')"><em>📋</em>Yearly</div>
+                <div class="fopt" data-freq="ott" onclick="pickF(this,'at')"><em>⚡</em>One-Time</div>
+              </div>
+            </div>
+            <div class="fr">
+              <div class="fg"><label class="fl">Department *</label><select class="fi" id="at_dept" onchange="fillAssignees('at')"><option value="">-- Select --</option></select></div>
+              <div class="fg"><label class="fl">Assign To *</label><select class="fi" id="at_asg"><option value="">-- Select Dept first --</option></select></div>
+            </div>
+            <div class="fr">
+              <div class="fg"><label class="fl">Priority</label><select class="fi" id="at_pri"><option value="high">🔴 High</option><option value="medium" selected>🟡 Medium</option><option value="low">🟢 Low</option></select></div>
+              <div class="fg"></div>
+            </div>
+            <div class="fr">
+              <div class="fg"><label class="fl">Start Date *</label><input class="fi" type="date" id="at_start"></div>
+              <div class="fg"><label class="fl">Due Date *</label><input class="fi" type="date" id="at_due"></div>
+            </div>
+            <div style="display:flex;gap:10px">
+              <button class="btn btn-p" id="at_btn" onclick="submitTask()">Assign Task</button>
+              <button class="btn btn-g" onclick="clearAssign()">Clear</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BULK ASSIGN -->
+      <div class="sc" id="pgBulk">
+        <div class="card card-b" style="max-width:900px">
+          <div style="font-size:15px;font-weight:700;color:var(--tx);margin-bottom:18px">📦 Bulk Task Assignment</div>
+          <div style="background:#F8FAFF;border:1.5px solid #C7D2FE;border-radius:10px;padding:16px;margin-bottom:18px">
+            <div class="section-hdr" style="margin-bottom:12px">Global Settings (applies to all tasks)</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+              <div class="fg" style="margin:0"><label class="fl">Frequency *</label><select class="fi" id="bk_freq"><option value="">-- Select --</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option><option value="ott">One-Time</option></select></div>
+              <div class="fg" style="margin:0"><label class="fl">Department *</label><select class="fi" id="bk_dept" onchange="bkFillAssignees()"><option value="">-- Select --</option></select></div>
+              <div class="fg" style="margin:0"><label class="fl">Assign To *</label><select class="fi" id="bk_asg"><option value="">-- Select Dept first --</option></select></div>
+              <div class="fg" style="margin:0"><label class="fl">Priority</label><select class="fi" id="bk_pri"><option value="high">🔴 High</option><option value="medium" selected>🟡 Medium</option><option value="low">🟢 Low</option></select></div>
+            </div>
+          </div>
+          <div class="fg"><label class="fl">Paste Task Titles * <span style="font-weight:400;text-transform:none;color:var(--mu)">(one per line, max 50)</span></label><textarea class="fi" id="bk_paste" rows="6" placeholder="Daily Sales Report&#10;Client Follow-up&#10;Update CRM Records&#10;..." oninput="bkParseLines()"></textarea></div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+            <span style="font-size:12px;color:var(--mu)" id="bkLineCount">0 tasks detected</span>
+            <button class="btn btn-g btn-sm" onclick="bkParseLines()">↻ Refresh</button>
+            <button class="btn btn-d btn-sm" onclick="bkClear()">✕ Clear All</button>
+          </div>
+          <div id="bkTableWrap" style="display:none">
+            <div class="tbl-wrap"><table>
+              <thead><tr><th style="width:32px"><input type="checkbox" id="bkSelectAll" onchange="bkToggleAll(this)"></th><th>Task Title</th><th style="min-width:140px">Start Date *</th><th style="min-width:140px">Due Date *</th><th style="width:60px">Del</th></tr></thead>
+              <tbody id="bkBody"></tbody>
+            </table></div>
+            <div style="display:flex;align-items:center;gap:12px;margin-top:14px">
+              <button class="btn btn-p" id="bkSubmitBtn" onclick="submitBulk()">✅ Submit All Tasks</button>
+              <span style="font-size:12px;color:var(--mu)" id="bkSelCount"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ALL TASKS -->
+      <div class="sc" id="pgAll">
+        <div class="card">
+          <div class="card-h">
+            <span class="card-t">All Tasks</span>
+            <div class="ftabs" id="allTabs">
+              <button class="ftab on" data-f="all">All</button>
+              <button class="ftab" data-f="daily">Daily</button>
+              <button class="ftab" data-f="weekly">Weekly</button>
+              <button class="ftab" data-f="monthly">Monthly</button>
+              <button class="ftab" data-f="yearly">Yearly</button>
+              <button class="ftab" data-f="ott">OTT</button>
+              <button class="ftab" data-f="pending">Pending</button>
+              <button class="ftab" data-f="in-progress">In Progress</button>
+              <button class="ftab" data-f="done">Done</button>
+            </div>
+          </div>
+          <div id="bulk_tblAll" style="display:none;padding:8px 14px;background:#EEF2FF;border-bottom:1px solid #C7D2FE;align-items:center;gap:10px">
+            <span style="font-size:12px;color:#4F46E5;font-weight:600" id="bulkCnt_tblAll">0 selected</span>
+            <button class="btn btn-p btn-sm" onclick="bulkMarkDone('tblAll')">✅ Mark Selected as Done</button>
+          </div>
+          <div class="tbl-wrap"><table>
+            <thead id="allHead"></thead>
+            <tbody id="allBody"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- TEAM STATS -->
+      <div class="sc" id="pgTeam">
+        <div class="card">
+          <div class="card-h">
+            <span class="card-t">Team Performance</span>
+            <button class="btn btn-p btn-sm" id="addMbrBtn" onclick="oModal('mUser')" style="display:none">+ Add Member</button>
+          </div>
+          <div class="tbl-wrap"><table>
+            <thead id="teamHead"></thead>
+            <tbody id="teamBody"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- PROFILE -->
+      <div class="sc" id="pgProfile">
+        <div class="pg-grid">
+          <div class="card card-b" style="text-align:center">
+            <div id="profAv" style="width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;margin:0 auto 14px"></div>
+            <div style="font-size:17px;font-weight:700;color:var(--tx);margin-bottom:3px" id="profName"></div>
+            <div style="font-size:12px;color:var(--mu);margin-bottom:4px" id="profEmail"></div>
+            <div style="font-size:12px;color:#6366F1;font-weight:600;margin-bottom:10px" id="profMeta"></div>
+            <div id="profRole" style="margin-bottom:16px"></div>
+            <hr style="border:none;border-top:1px solid var(--bd);margin-bottom:16px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="profStats"></div>
+          </div>
+          <div>
+            <div class="card card-b" style="margin-bottom:16px">
+              <div style="font-size:14px;font-weight:700;color:var(--tx);margin-bottom:16px">🔒 Change Password</div>
+              <div class="fg"><label class="fl">Current Password</label><input class="fi" type="password" id="cpOld" placeholder="Current password"></div>
+              <div class="fg"><label class="fl">New Password</label><input class="fi" type="password" id="cpNew" placeholder="New password (min 4 chars)"></div>
+              <div class="fg"><label class="fl">Confirm Password</label><input class="fi" type="password" id="cpConf" placeholder="Confirm new password"></div>
+              <button class="btn btn-p btn-sm" onclick="changePass()">Update Password</button>
+            </div>
+            <div class="card"><div class="card-h"><span class="card-t">Recent Tasks</span></div><div class="card-b" id="profTasks"></div></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /pg -->
+  </div><!-- /mn -->
+</div><!-- /app -->
+
+<!-- MODALS -->
+<div class="mbg" id="mTask"><div class="modal">
+  <div class="mh"><h2>Quick Assign Task</h2><button class="mclose" onclick="cModal('mTask')">✕</button></div>
+  <div class="fg"><label class="fl">Title *</label><input class="fi" id="m_title" placeholder="Task title..."></div>
+  <div class="fg"><label class="fl">Frequency *</label>
+    <div class="fgrid">
+      <div class="fopt" data-freq="daily" onclick="pickF(this,'m')"><em>📅</em>Daily</div>
+      <div class="fopt" data-freq="weekly" onclick="pickF(this,'m')"><em>📆</em>Weekly</div>
+      <div class="fopt" data-freq="monthly" onclick="pickF(this,'m')"><em>🗓️</em>Monthly</div>
+      <div class="fopt" data-freq="yearly" onclick="pickF(this,'m')"><em>📋</em>Yearly</div>
+      <div class="fopt" data-freq="ott" onclick="pickF(this,'m')"><em>⚡</em>OTT</div>
+    </div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label class="fl">Department *</label><select class="fi" id="m_dept" onchange="fillAssignees('m')"><option value="">-- Select --</option></select></div>
+    <div class="fg"><label class="fl">Assign To *</label><select class="fi" id="m_asg"><option value="">-- Select Dept first --</option></select></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label class="fl">Start Date *</label><input class="fi" type="date" id="m_start"></div>
+    <div class="fg"><label class="fl">Due Date *</label><input class="fi" type="date" id="m_due"></div>
+  </div>
+  <div class="fg"><label class="fl">Priority</label><select class="fi" id="m_pri"><option value="high">High</option><option value="medium" selected>Medium</option><option value="low">Low</option></select></div>
+  <div style="display:flex;gap:8px"><button class="btn btn-p" id="m_btn" onclick="submitModal()">Assign</button><button class="btn btn-g" onclick="cModal('mTask')">Cancel</button></div>
+</div></div>
+
+<div class="mbg" id="mUser"><div class="modal">
+  <div class="mh"><h2>Add Team Member</h2><button class="mclose" onclick="cModal('mUser')">✕</button></div>
+  <div class="fr">
+    <div class="fg"><label class="fl">Employee Code *</label><input class="fi" id="nu_code" placeholder="e.g. EMP010"></div>
+    <div class="fg"><label class="fl">Role *</label><select class="fi" id="nu_role"><option value="user">User</option><option value="manager">Manager</option><option value="admin">Admin</option></select></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label class="fl">Full Name *</label><input class="fi" id="nu_name" placeholder="Full name"></div>
+    <div class="fg"><label class="fl">Department *</label><input class="fi" id="nu_dept" placeholder="e.g. Sales"></div>
+  </div>
+  <div class="fg"><label class="fl">Email *</label><input class="fi" id="nu_email" type="email" placeholder="user@company.com"></div>
+  <div class="fg"><label class="fl">Password *</label><input class="fi" id="nu_pass" type="password" placeholder="Min 4 characters"></div>
+  <div style="display:flex;gap:8px"><button class="btn btn-p" onclick="submitUser()">Add Member</button><button class="btn btn-g" onclick="cModal('mUser')">Cancel</button></div>
+</div></div>
+
+<div class="mbg" id="mStatus"><div class="modal" style="max-width:400px">
+  <div class="mh"><h2>Update Task Status</h2><button class="mclose" onclick="cModal('mStatus')">✕</button></div>
+  <input type="hidden" id="mStatusTaskId">
+  <div class="fg">
+    <label class="fl">New Status *</label>
+    <select class="fi" id="mStatusSel">
+      <option value="">-- Select status --</option>
+      <option value="in-progress">▶ In Progress</option>
+      <option value="done">✅ Done</option>
+      <option value="not-done">❌ Not Done</option>
+      <option value="hold">⏸ On Hold</option>
+    </select>
+  </div>
+  <div class="fg">
+    <label class="fl">Remarks <span id="remLabel" style="color:#EF4444;display:none">* Required</span></label>
+    <textarea class="fi" id="mStatusRem" placeholder="Add remarks here..."></textarea>
+  </div>
+  <div style="display:flex;gap:8px"><button class="btn btn-p" onclick="submitStatus()">Update Status</button><button class="btn btn-g" onclick="cModal('mStatus')">Cancel</button></div>
+</div></div>
+
+<!-- Stat Detail Modal -->
+<div class="mbg" id="mStatDetail">
+  <div class="modal" style="max-width:880px;width:97vw">
+    <div class="mh">
+      <h2 id="statModalTitle">Tasks</h2>
+      <button class="mclose" onclick="cModal('mStatDetail')">✕</button>
+    </div>
+    <div style="overflow-x:auto;max-height:62vh">
+      <table>
+        <thead id="statModalHead"></thead>
+        <tbody id="statModalBody"></tbody>
+      </table>
+    </div>
+    <div style="padding:12px 0 2px;display:flex;align-items:center;gap:10px">
+      <button class="btn btn-p btn-sm" onclick="bulkDoneFromPanel()">✅ Mark Selected as Done</button>
+      <span style="font-size:12px;color:#64748B" id="statPanelCount">0 selected</span>
+    </div>
+  </div>
+</div>
+<div class="lov3d" id="lov">
+  <div class="spin3d"></div>
+  <div class="lov3d-txt" id="lovTxt">Loading...</div>
+</div>
+<!-- 3D Success/Info Popup -->
+<div class="popup-bg" id="popup3d">
+  <div class="popup-box">
+    <span class="popup-icon" id="popIcon">✅</span>
+    <div class="popup-title" id="popTitle">Done!</div>
+    <div class="popup-sub" id="popSub"></div>
+    <button class="popup-btn" onclick="closePopup()">OK</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STATE
+var U=null, USERS=[], TASKS=[], DEPTS=[];
+var atFreq="", mFreq="", fMine="all", fAll="all";
+
+// ── INIT
+window.addEventListener("DOMContentLoaded", function(){
+  var s = tryParse(sessionStorage.getItem("tms"));
+  if(s && s.user){ U=s.user; boot(); }
+  // Nav
+  document.querySelectorAll(".sb-btn[data-pg]").forEach(function(b){
+    b.addEventListener("click", function(){ go(this.dataset.pg); });
+  });
+  // Filter tabs
+  ["mineTabs","allTabs"].forEach(function(id){
+    document.getElementById(id).addEventListener("click", function(e){
+      var b=e.target.closest(".ftab"); if(!b) return;
+      this.querySelectorAll(".ftab").forEach(function(x){x.classList.remove("on");});
+      b.classList.add("on");
+      if(id==="mineTabs"){ fMine=b.dataset.f; renderMine(); }
+      else { fAll=b.dataset.f; renderAll(); }
+    });
+  });
+  // Modal close on backdrop
+  document.querySelectorAll(".mbg").forEach(function(bg){
+    bg.addEventListener("click", function(e){ if(e.target===this) this.classList.remove("on"); });
+  });
+  // Status modal: show/hide required label
+  document.getElementById("mStatusSel").addEventListener("change", function(){
+    var need = this.value==="not-done"||this.value==="hold";
+    document.getElementById("remLabel").style.display = need?"":"none";
+  });
+  // Login on Enter
+  document.getElementById("pw").addEventListener("keydown", function(e){
+    if(e.key==="Enter") doLogin();
+  });
+  // Delegate: Meet button on employee cards + stat cards + checkboxes
+  document.addEventListener("click", function(e){
+    var empBtn = e.target.closest("[data-empname]");
+    if(empBtn){ openMeet(empBtn.getAttribute("data-empname")); return; }
+    var statCard = e.target.closest("[data-statkey]");
+    if(statCard){
+      var key=statCard.getAttribute("data-statkey");
+      var lbl=(window._statFilters&&window._statFilters[key])||key;
+      openStatModal(key,lbl); return;
+    }
+  });
+  // Filter button delegation
+  document.addEventListener("click", function(e){
+    var fb = e.target.closest("[data-ocf-tbl]");
+    if(fb){ openColFilter(e, fb.dataset.ocfTbl, fb.dataset.ocfKey, fb.dataset.ocfLbl); return; }
+    // Select all in dropdown
+    var saf = e.target.closest("[data-saf-tbl]");
+    if(saf){ selectAllFlt(saf.dataset.safTbl, saf.dataset.safKey); return; }
+    // Clear in dropdown
+    var clf = e.target.closest("[data-clf-tbl]");
+    if(clf){ clearFlt(clf.dataset.clfTbl, clf.dataset.clfKey); return; }
+    // Apply filter
+    var apf = e.target.closest("[data-apf-tbl]");
+    if(apf){
+      applyChkFilter(apf.dataset.apfTbl, apf.dataset.apfKey);
+      document.querySelectorAll(".col-flt-dd").forEach(function(d){d.remove();});
+      return;
+    }
+  });
+  // ── FILTER SELECT CHANGE — main filter handler
+  document.addEventListener("change", function(e2){
+    var sel = e2.target;
+    // Handle filter row select dropdowns
+    if(sel.tagName === "SELECT" && sel.getAttribute("data-flt-tbl")){
+      var tbl = sel.getAttribute("data-flt-tbl");
+      var key = sel.getAttribute("data-flt-key");
+      var val = sel.value;
+      if(!COL_FILTERS[tbl]) COL_FILTERS[tbl] = {};
+      if(val){ COL_FILTERS[tbl][key] = val; }
+      else    { delete COL_FILTERS[tbl][key]; }
+      reRenderTable(tbl);
+    }
+  });
+  // Checkbox change delegation for bulk bar
+  document.addEventListener("change", function(e){
+    var chk = e.target;
+    if(chk.classList.contains("tbl-chk")){ updateBulkBar(chk.dataset.tbl); return; }
+    if(chk.classList.contains("tbl-chk-all")){
+      tblToggleAll(chk, chk.dataset.tbl); return;
+    }
+  });
+});
+
+// ── API (was: google.script.run → Apps Script. Now: fetch → Vercel /api/app → Supabase)
+function api(fn, p, msg){
+  if(msg) showLov(msg);
+  return fetch("/api/app", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fn: fn, params: p })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(r){ if(msg) hideLov(); return r; })
+  .catch(function(e){ if(msg) hideLov(); return { ok:false, msg: e.message || String(e) }; });
+}
+
+// ── AUTH
+function doLogin(){
+  var email=document.getElementById("em").value.trim();
+  var pass=document.getElementById("pw").value.trim();
+  var err=document.getElementById("lerr");
+  err.style.display="none";
+  if(!email||!pass){err.textContent="Please enter email and password.";err.style.display="block";return;}
+  var btn=document.getElementById("lbtn");
+  btn.disabled=true; btn.innerHTML="<span class='loader'></span>&nbsp;Signing in...";
+  api("loginUser",{email:email,password:pass}).then(function(r){
+    if(r&&r.ok){U=r.user;sessionStorage.setItem("tms",JSON.stringify({user:r.user}));boot();}
+    else{err.textContent=(r&&r.msg)||"Login failed.";err.style.display="block";btn.disabled=false;btn.innerHTML="Sign In";}
+  });
+}
+function doLogout(){
+  U=null;USERS=[];TASKS=[];DEPTS=[];
+  sessionStorage.removeItem("tms");
+  document.getElementById("app").style.display="none";
+  document.getElementById("lw").style.display="flex";
+  document.getElementById("em").value="";
+  document.getElementById("pw").value="";
+  document.getElementById("lerr").style.display="none";
+  document.getElementById("lbtn").disabled=false;
+  document.getElementById("lbtn").innerHTML="Sign In";
+}
+function boot(){
+  document.getElementById("lw").style.display="none";
+  document.getElementById("app").style.display="flex";
+  setRole();
+  Promise.all([loadUsers(), loadTasks()]).then(function(){
+    go("dash");
+    showPopup("👋","Welcome Back!","Signed in as "+U.name);
+  });
+}
+function setRole(){
+  var av=document.getElementById("sbav");
+  av.textContent=ini(U.name); av.className="av av-"+(U.role[0]);
+  document.getElementById("sbname").textContent=U.name;
+  document.getElementById("sbrole").textContent=U.role;
+  document.getElementById("sbsub").textContent=U.role==="admin"?"Admin View":U.role==="manager"?"Manager View":"My Workspace";
+  var priv=isPriv();
+  ["mgrSec","navAssign","navAll","navTeam","topAdd"].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.style.display=priv?"":"none";
+  });
+  var ab=document.getElementById("addMbrBtn"); if(ab) ab.style.display=U.role==="admin"?"":"none";
+  var nb2=document.getElementById("navBulk"); if(nb2) nb2.style.display=U.role==="admin"?"":"none";
+  // update tbBadge with role
+  var badge=document.getElementById("tbBadge");
+  if(badge){badge.textContent=U.role.toUpperCase();badge.style.display="";}
+}
+function isPriv(){ return U&&(U.role==="admin"||U.role==="manager"); }
+
+// ── DATA
+function loadUsers(){
+  return api("getUsers",{uid:U.id}).then(function(r){
+    if(r&&r.ok){
+      USERS=r.users||[]; DEPTS=[];
+      USERS.forEach(function(u){ if(u.dept&&DEPTS.indexOf(u.dept)===-1) DEPTS.push(u.dept); });
+      DEPTS.sort(); fillDeptDropdowns();
+    } else toast((r&&r.msg)||"Could not load users.","err");
+  });
+}
+function loadTasks(){
+  return api("getTasks",{uid:U.id}).then(function(r){
+    if(r&&r.ok) TASKS=r.tasks||[];
+  });
+}
+function fillDeptDropdowns(){
+  var opts="<option value=''>-- Select Department --</option>";
+  DEPTS.forEach(function(d){ opts+="<option value='"+esc(d)+"'>"+esc(d)+"</option>"; });
+  ["at_dept","m_dept","bk_dept"].forEach(function(id){ var el=document.getElementById(id); if(el) el.innerHTML=opts; });
+  // Also fill employee dept filter
+  var empDf=document.getElementById("empDeptFilter");
+  if(empDf){
+    var dOpts2="<option value=''>All Departments</option>";
+    DEPTS.forEach(function(d){dOpts2+="<option value='"+esc(d)+"'>"+esc(d)+"</option>";});
+    empDf.innerHTML=dOpts2;
+  }
+  resetAssigneeDropdowns();
+}
+function resetAssigneeDropdowns(){
+  ["at_asg","m_asg"].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) el.innerHTML="<option value=''>-- Select Dept first --</option>";
+  });
+}
+function fillAssignees(prefix){
+  var dept=document.getElementById(prefix+"_dept").value;
+  var sel=document.getElementById(prefix+"_asg");
+  if(!dept){ sel.innerHTML="<option value=''>-- Select Dept first --</option>"; return; }
+  var members=USERS.filter(function(u){ return u.dept===dept; });
+  var opts="<option value=''>-- Select Member --</option>";
+  members.forEach(function(u){
+    opts+="<option value='"+u.id+"'>"+esc(u.name)+" ["+esc(u.id)+"]"+(u.id===U.id?" (You)":"")+"</option>";
+  });
+  sel.innerHTML=opts||"<option value=''>No members in this dept</option>";
+}
+
+// ── NAVIGATION
+function go(pg){
+  document.querySelectorAll(".sb-btn[data-pg]").forEach(function(b){b.classList.remove("on");});
+  var nb=document.querySelector(".sb-btn[data-pg='"+pg+"']"); if(nb) nb.classList.add("on");
+  document.querySelectorAll(".sc").forEach(function(s){s.classList.remove("on");});
+  var titles={dash:"Dashboard",mine:"My Tasks",notice:"Notices & Announcements",emp:"Employees",assign:"Assign Task",bulk:"Bulk Assign",all:"All Tasks",team:"Team Stats",profile:"My Profile"};
+  document.getElementById("pgtitle").textContent=titles[pg]||pg;
+  var ta=document.getElementById("topAdd"); if(ta) ta.style.display=isPriv()&&pg!=="assign"?"":"none";
+  var pgMap={dash:"pgDash",mine:"pgMine",notice:"pgNotice",emp:"pgEmp",assign:"pgAssign",bulk:"pgBulk",all:"pgAll",team:"pgTeam",profile:"pgProfile"};
+  if(pgMap[pg]) document.getElementById(pgMap[pg]).classList.add("on");
+  var fns={dash:renderDash,mine:renderMine,notice:renderNotices,emp:renderEmployees,assign:function(){fillDeptDropdowns();},bulk:initBulk,all:renderAll,team:renderTeam,profile:renderProfile};
+  if(fns[pg]) fns[pg]();
+}
+
+// ── HELPERS
+function fpill(f){ var m={daily:"p-daily",weekly:"p-weekly",monthly:"p-monthly",ott:"p-ott",yearly:"p-yearly"},l={daily:"Daily",weekly:"Weekly",monthly:"Monthly",ott:"OTT",yearly:"Yearly"}; return "<span class='pill "+(m[f]||"")+"'>"+(l[f]||f)+"</span>"; }
+function spill(s){ var m={pending:"p-pending",done:"p-done","in-progress":"p-inprog","not-done":"p-notdone",hold:"p-hold"},l={pending:"Pending",done:"Done","in-progress":"In Progress","not-done":"Not Done",hold:"On Hold"}; return "<span class='pill "+(m[s]||"p-pending")+"'>"+(l[s]||s)+"</span>"; }
+function priBadge(p){ var c={high:"#F43F5E",medium:"#F59E0B",low:"#10B981"},l={high:"High",medium:"Medium",low:"Low"}; return "<span class='pdot' style='background:"+(c[p]||"#F59E0B")+"'></span>"+(l[p]||p); }
+function timing(t){
+  if(t.status==="pending"||t.status==="in-progress") return "<span class='pill' style='background:rgba(148,163,184,.12);color:#94A3B8'>Ongoing</span>";
+  if(!t.completedAt) return "";
+  var due=new Date(t.dueDate); due.setHours(23,59,59);
+  var comp=new Date(t.completedAt);
+  return comp<=due ? "<span class='pill' style='background:rgba(16,185,129,.15);color:#34D399'>On Time</span>"
+                   : "<span class='pill' style='background:rgba(244,63,94,.15);color:#F43F5E'>Delayed</span>";
+}
+// Action button opens modal — NO inline onclick with dynamic IDs
+function actBtn(taskId, status){
+  var closed=["done","not-done","hold"];
+  if(closed.indexOf(status)>-1) return "<span style='font-size:11px;color:var(--mu)'>Completed</span>";
+  return "<button class='btn btn-p btn-sm' onclick='openStatusModal(\""+taskId+"\")'>Update</button>";
+}
+function ini(n){ return (n||"?").split(" ").map(function(w){return w[0]||"";}).join("").toUpperCase().slice(0,2); }
+function avc(r){ return r==="admin"?"av-a":r==="manager"?"av-m":"av-u"; }
+function cap(s){ return s?s.charAt(0).toUpperCase()+s.slice(1):s; }
+function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function tryParse(s){ try{return JSON.parse(s);}catch(e){return null;} }
+
+// ── STATUS MODAL (separate modal avoids all inline onclick quoting issues)
+function openStatusModal(taskId){
+  document.getElementById("mStatusTaskId").value=taskId;
+  document.getElementById("mStatusSel").value="";
+  document.getElementById("mStatusRem").value="";
+  document.getElementById("remLabel").style.display="none";
+  oModal("mStatus");
+}
+function submitStatus(){
+  var taskId=document.getElementById("mStatusTaskId").value;
+  var status=document.getElementById("mStatusSel").value;
+  var remarks=document.getElementById("mStatusRem").value.trim();
+  if(!status){toast("Please select a status.","err");return;}
+  if((status==="not-done"||status==="hold")&&!remarks){toast("Remarks required for Not Done / On Hold.","err");return;}
+  api("updateStatus",{uid:U.id,taskId:taskId,status:status,remarks:remarks},"Updating...").then(function(r){
+    if(r&&r.ok){
+      cModal("mStatus");
+      var icons={"done":"✅","not-done":"❌","in-progress":"▶️","hold":"⏸️"};
+      showPopup(icons[status]||"✅","Status Updated!","Task marked as: "+status.replace("-"," "));
+      loadTasks().then(function(){ renderMine(); renderDash(); if(document.getElementById("pgAll").classList.contains("on")) renderAll(); });
+    } else { toast((r&&r.msg)||"Error","err"); }
+  });
+}
+
+// ── DASHBOARD
+function renderDash(){
+  api("getDashboard",{uid:U.id},"Loading...").then(function(r){
+    if(!r||!r.ok){toast((r&&r.msg)||"Error","err");return;}
+    var st=r.stats, pct=st.total?Math.round(st.done/st.total*100):0;
+    var dTotal=st.done||0;
+    var otPct=dTotal?Math.round((st.onTime||0)/dTotal*100):0;
+    var dlPct=dTotal?Math.round((st.delayed||0)/dTotal*100):0;
+    document.getElementById("statGrid").innerHTML=
+      mkStat("Total",st.total,"All tasks","100%","#6366F1","all")+
+      mkStat("Completed",dTotal,pct+"% rate",pct+"%","#10B981","done")+
+      mkStat("On Time",st.onTime||0,otPct+"% of done",otPct+"%","#34D399","ontime")+
+      mkStat("Delayed",st.delayed||0,dlPct+"% of done",dlPct+"%","#F43F5E","delayed")+
+      mkStat("In Progress",st.prog||0,"Being worked on",st.total?Math.round((st.prog||0)/st.total*100)+"%":"0%","#38BDF8")+
+      mkStat("Pending",st.pending||0,"Not started",st.total?Math.round((st.pending||0)/st.total*100)+"%":"0%","#F59E0B")+
+      mkStat("Not Done",st.notDone||0,"Marked incomplete","0%","#FB7185")+
+      mkStat("On Hold",st.hold||0,"Paused","0%","#FCD34D");
+    var fs=r.freqStats||{};
+    var fc={daily:"#38BDF8",weekly:"#818CF8",monthly:"#FCD34D",yearly:"#A78BFA",ott:"#FB7185"};
+    var fl={daily:"Daily",weekly:"Weekly",monthly:"Monthly",yearly:"Yearly",ott:"One-Time"};
+    var fh=""; ["daily","weekly","monthly","yearly","ott"].forEach(function(f){
+      var d=fs[f]||{total:0,done:0}; var p=d.total?Math.round(d.done/d.total*100):0;
+      fh+="<div style='margin-bottom:10px'><div style='display:flex;justify-content:space-between;margin-bottom:4px'><span style='font-size:12px;color:var(--mu)'>"+fl[f]+"</span><span style='font-size:12px;color:#fff'>"+d.total+"</span></div>"
+        +"<div style='height:5px;background:var(--bd);border-radius:3px'><div style='height:100%;width:"+p+"%;background:"+fc[f]+";border-radius:3px'></div></div></div>";
+    });
+    document.getElementById("freqChart").innerHTML=fh||"<div class='empty'>No tasks yet</div>";
+    var rh=(r.recent||[]).slice(0,5).map(function(t){
+      return "<div style='display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid rgba(51,65,85,.4)'>"
+        +"<div class='av av-u' style='width:26px;height:26px;font-size:9px'>"+ini(t.assigneeName)+"</div>"
+        +"<div style='flex:1;min-width:0'><div style='font-size:12px;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'>"+esc(t.title)+"</div>"
+        +"<div style='font-size:10px;color:var(--mu)'>"+esc(t.department||"")+"</div></div>"+fpill(t.frequency)+"</div>";
+    }).join("");
+    document.getElementById("recentAct").innerHTML=rh||"<div class='empty'>No recent activity</div>";
+    var ph=(r.myPending||[]).map(function(t){
+      return "<tr><td><div class='tn'>"+esc(t.title)+"</div></td>"
+        +"<td style='font-size:11px'>"+esc(t.department||"")+"</td>"
+        +"<td>"+fpill(t.frequency)+"</td><td>"+priBadge(t.priority)+"</td>"
+        +"<td style='font-size:11px;color:var(--mu)'>"+esc(t.startDate||"")+"</td>"
+        +"<td style='font-size:11px;color:var(--mu)'>"+esc(t.dueDate||"")+"</td>"
+        +"<td>"+actBtn(t.id,t.status)+"</td></tr>";
+    }).join("");
+    document.getElementById("dashBody").innerHTML=ph||"<tr><td colspan='7' style='text-align:center;padding:22px;color:var(--mu)'>All caught up!</td></tr>";
+  });
+}
+function mkStat(l,v,s,p,col,filterKey){
+  // Use window.STAT_CLICK to avoid inline onclick quote issues
+  window._statFilters = window._statFilters||{};
+  if(filterKey) window._statFilters[filterKey]=l;
+  var clickAttr = filterKey ? " data-statkey=\""+filterKey+"\"" : "";
+  return "<div class=\"st stat-clickable\""+clickAttr+">"
+    +"<div class=\"st-l\">"+l+"</div>"
+    +"<div class=\"st-v\">"+v+"</div>"
+    +"<div class=\"st-s\">"+s+"</div>"
+    +"<div class=\"st-b\"><div class=\"st-f\" style=\"width:"+p+";background:"+col+"\"></div></div>"
+    +(filterKey?"<div style=\"font-size:10px;color:#6366F1;margin-top:6px;font-weight:600\">Click to view →</div>":"")
+    +"</div>";
+}
+
+// ── MY TASKS
+function renderMine(){
+  // Build filter headers
+  var mineHeaders=[
+    {label:"☐",key:"chk"},{label:"Task",key:"title"},{label:"Dept",key:"department"},{label:"Type",key:"frequency"},
+    {label:"By",key:"assignedByName"},{label:"Priority",key:"priority"},
+    {label:"Start",key:"startDate"},{label:"Due",key:"dueDate"},
+    {label:"Status",key:"status"},{label:"Timing",key:"_timing"},{label:"Action",key:"_action"},{label:"Remarks",key:"remarks"}
+  ];
+  // Store data FIRST so buildFilterHeaders can read unique values
+  var mineRaw=TASKS.map(function(t){
+    var tim="ongoing";
+    if(t.completedAt&&t.dueDate){
+      var due=new Date(t.dueDate); due.setHours(23,59,59);
+      tim=new Date(t.completedAt)<=due?"on time":"delayed";
+    }
+    t._timing=tim;
+    t._action=(t.status==="done"||t.status==="not-done"||t.status==="hold")?"completed":"needs update";
+    return t;
+  });
+  ALL_TABLE_DATA["tblMine"] = mineRaw.slice();
+  var list=mineRaw.filter(function(t){
+    if(fMine==="all") return true;
+    if(["daily","weekly","monthly","yearly","ott"].indexOf(fMine)>-1) return t.frequency===fMine;
+    return t.status===fMine;
+  });
+  // NOW build headers (with populated data for dropdowns)
+  var mh=document.getElementById("mineHead");
+  if(mh){ mh.innerHTML=buildFilterHeaders("tblMine",mineHeaders); attachFilterListeners(mh); }
+  list = applyFilters(list,"tblMine");
+  var h=list.map(function(t){
+    var isDone=t.status==="done"||t.status==="not-done"||t.status==="hold";
+    return "<tr>"
+      +"<td style='width:36px'><input type='checkbox' class='tbl-chk' data-tbl='tblMine' data-tid='"+esc(t.id)+"' "+(isDone?"disabled":"")+"></td>"
+      +"<td><div class='tn'>"+esc(t.title)+"</div><div class='tm'>"+esc(t.description||"")+"</div></td>"
+      +"<td style='font-size:11px'>"+esc(t.department||"")+"</td>"
+      +"<td>"+fpill(t.frequency)+"</td>"
+      +"<td style='font-size:11px'>"+esc(t.assignedByName||"")+"</td>"
+      +"<td>"+priBadge(t.priority)+"</td>"
+      +"<td style='font-size:11px;color:var(--mu)'>"+esc(t.startDate||"")+"</td>"
+      +"<td style='font-size:11px;color:var(--mu)'>"+esc(t.dueDate||"")+"</td>"
+      +"<td>"+spill(t.status)+"</td>"
+      +"<td>"+timing(t)+"</td>"
+      +"<td>"+actBtn(t.id,t.status)+"</td>"
+      +"<td style='font-size:11px;color:var(--mu);max-width:120px'>"+esc(t.remarks||"")+"</td>"
+      +"</tr>";
+  }).join("");
+  document.getElementById("mineBody").innerHTML=h||"<tr><td colspan='11'><div class='empty'>No tasks found</div></td></tr>";
+}
+
+// ── ALL TASKS
+function renderAll(){
+  // Build filter headers
+  var allHeaders=[
+    {label:"☐",key:"chk"},{label:"Task",key:"title"},{label:"Dept",key:"department"},{label:"Type",key:"frequency"},
+    {label:"Assigned To",key:"assigneeName"},{label:"By",key:"assignedByName"},{label:"Priority",key:"priority"},
+    {label:"Start",key:"startDate"},{label:"Due",key:"dueDate"},
+    {label:"Status",key:"status"},{label:"Timing",key:"timing"},{label:"Action",key:"_action"},
+    {label:"Remarks",key:"remarks"},{label:"Remove",key:"remove"}
+  ];
+
+  api("getTasks",{uid:U.id},"Loading...").then(function(r){
+    if(!r||!r.ok){toast((r&&r.msg)||"Error","err");return;}
+    // Enrich tasks with computed timing value for filter
+    var allRaw=(r.tasks||[]).map(function(t){
+      var tim="ongoing";
+      if(t.completedAt&&t.dueDate){
+        var due=new Date(t.dueDate); due.setHours(23,59,59);
+        tim=new Date(t.completedAt)<=due?"on time":"delayed";
+      }
+      t._timing=tim;
+      t._action=(t.status==="done"||t.status==="not-done"||t.status==="hold")?"completed":"needs update";
+      return t;
+    });
+    // Store ALL before frequency/status filter (for unique values)
+    ALL_TABLE_DATA["tblAll"] = allRaw.slice();
+    var ah=document.getElementById("allHead");
+    if(ah){ ah.innerHTML=buildFilterHeaders("tblAll",allHeaders); attachFilterListeners(ah); }
+    var list=allRaw.filter(function(t){
+      if(fAll==="all") return true;
+      if(["daily","weekly","monthly","yearly","ott"].indexOf(fAll)>-1) return t.frequency===fAll;
+      return t.status===fAll;
+    });
+    list = applyFilters(list,"tblAll");
+    var priv=isPriv();
+    var h=list.map(function(t){
+      var isDoneA=t.status==="done"||t.status==="not-done"||t.status==="hold";
+      var rem="";
+      if(priv){
+        rem="<button class='btn btn-d btn-sm' onclick='confirmRemove(\""+esc(t.id)+"\",\""+esc(t.title).replace(/"/g,"&quot;")+"\")'>Remove</button>";
+      }
+      return "<tr>"
+        +"<td style='width:36px'><input type='checkbox' class='tbl-chk' data-tbl='tblAll' data-tid='"+esc(t.id)+"' "+(isDoneA?"disabled":"")+"></td>"
+        +"<td><div class='tn'>"+esc(t.title)+"</div></td>"
+        +"<td style='font-size:11px'>"+esc(t.department||"")+"</td>"
+        +"<td>"+fpill(t.frequency)+"</td>"
+        +"<td style='font-size:11px'>"+esc(t.assigneeName||"")+"<br><span style='color:var(--mu);font-size:10px'>"+esc(t.assigneeId||"")+"</span></td>"
+        +"<td style='font-size:11px;color:var(--mu)'>"+esc(t.assignedByName||"")+"</td>"
+        +"<td>"+priBadge(t.priority)+"</td>"
+        +"<td style='font-size:11px;color:var(--mu)'>"+esc(t.startDate||"")+"</td>"
+        +"<td style='font-size:11px;color:var(--mu)'>"+esc(t.dueDate||"")+"</td>"
+        +"<td>"+spill(t.status)+"</td>"
+        +"<td>"+timing(t)+"</td>"
+        +"<td>"+actBtn(t.id,t.status)+"</td>"
+        +"<td style='font-size:11px;color:var(--mu);max-width:100px'>"+esc(t.remarks||"")+"</td>"
+        +"<td>"+rem+"</td>"
+        +"</tr>";
+    }).join("");
+    document.getElementById("allBody").innerHTML=h||"<tr><td colspan='13'><div class='empty'>No tasks found</div></td></tr>";
+  });
+}
+
+function confirmRemove(taskId, taskTitle){
+  var stopAll=confirm("Stop all future recurring instances of:\n"+taskTitle+"\n\nOK = Stop all future recurrences\nCancel = Delete only this one task");
+  api("removeTask",{uid:U.id,taskId:taskId,stopAll:stopAll},"Removing...").then(function(r){
+    toast((r&&r.msg)||"Done", r&&r.ok?"ok":"err");
+    if(r&&r.ok){ loadTasks().then(function(){ renderAll(); renderMine(); renderDash(); }); }
+  });
+}
+
+// ── TEAM
+function renderTeam(){
+  // Build filter headers
+  var teamHeaders=[
+    {label:"Name",key:"name"},{label:"Dept",key:"dept"},{label:"Role",key:"role"},
+    {label:"Total",key:""},{label:"Done",key:""},{label:"In Progress",key:""},
+    {label:"Pending",key:""},{label:"Not Done",key:""},{label:"On Hold",key:""},{label:"Remove",key:"remove"}
+  ];
+
+  api("getDashboard",{uid:U.id},"Loading...").then(function(r){
+    if(!r||!r.ok){toast((r&&r.msg)||"Error","err");return;}
+    ALL_TABLE_DATA["tblTeam"] = (r.teamStats||[]).slice();
+    var th=document.getElementById("teamHead");
+    if(th){ th.innerHTML=buildFilterHeaders("tblTeam",teamHeaders); attachFilterListeners(th); }
+    var isAdmin=U&&U.role==="admin";
+    var h=(r.teamStats||[]).map(function(u){
+      var remBtn=isAdmin&&u.id!==U.id
+        ? "<button class='btn btn-d btn-sm' onclick='confirmRemoveEmp(\""+esc(u.id)+"\",\""+esc(u.name).replace(/"/g,"&quot;")+"\")'>Remove</button>"
+        : "<span style='color:var(--mu)'>—</span>";
+      return "<tr>"
+        +"<td><div style='display:flex;align-items:center;gap:9px'><div class='av "+avc(u.role)+"' style='width:32px;height:32px;font-size:11px'>"+ini(u.name)+"</div>"
+        +"<div><div class='tn'>"+esc(u.name)+"</div><div class='tm'>"+esc(u.id)+" · "+esc(u.email)+"</div></div></div></td>"
+        +"<td style='font-size:11px'>"+esc(u.dept||"")+"</td>"
+        +"<td><span class='pill p-"+u.role+"'>"+cap(u.role)+"</span></td>"
+        +"<td><b style='color:#fff'>"+u.total+"</b></td>"
+        +"<td style='color:#34D399;font-weight:600'>"+u.done+"</td>"
+        +"<td style='color:#818CF8;font-weight:600'>"+u.prog+"</td>"
+        +"<td style='color:#FCD34D;font-weight:600'>"+u.pending+"</td>"
+        +"<td style='color:#FB7185;font-weight:600'>"+(u.notDone||0)+"</td>"
+        +"<td style='color:#FCD34D;font-weight:600'>"+(u.hold||0)+"</td>"
+        +"<td>"+remBtn+"</td>"
+        +"</tr>";
+    }).join("");
+    document.getElementById("teamBody").innerHTML=h||"<tr><td colspan='10'><div class='empty'>No members</div></td></tr>";
+    var ab=document.getElementById("addMbrBtn"); if(ab) ab.style.display=isAdmin?"":"none";
+  });
+}
+
+function confirmRemoveEmp(empId, empName){
+  if(!confirm("Remove "+empName+" ("+empId+")?\nThis will deactivate all their recurring tasks.")) return;
+  api("removeEmployee",{uid:U.id,empId:empId},"Removing...").then(function(r){
+    toast((r&&r.msg)||"Done", r&&r.ok?"ok":"err");
+    if(r&&r.ok) loadUsers().then(renderTeam);
+  });
+}
+
+// ── PROFILE
+function renderProfile(){
+  var av=document.getElementById("profAv");
+  av.textContent=ini(U.name);
+  var bg=U.role==="admin"?"rgba(99,102,241,.25)":U.role==="manager"?"rgba(245,158,11,.2)":"rgba(16,185,129,.2)";
+  var cl=U.role==="admin"?"#818CF8":U.role==="manager"?"#FCD34D":"#34D399";
+  av.style.cssText="width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;margin:0 auto 12px;background:"+bg+";color:"+cl;
+  document.getElementById("profName").textContent=U.name;
+  document.getElementById("profEmail").textContent=U.email;
+  document.getElementById("profMeta").textContent="Dept: "+(U.dept||"—")+" | Code: "+U.id;
+  document.getElementById("profRole").innerHTML="<span class='pill p-"+U.role+"'>"+cap(U.role)+"</span>";
+  var myT=TASKS;
+  document.getElementById("profStats").innerHTML=[
+    {l:"Total",v:myT.length,c:"#818CF8"},
+    {l:"Done",v:myT.filter(function(t){return t.status==="done";}).length,c:"#34D399"},
+    {l:"Not Done",v:myT.filter(function(t){return t.status==="not-done";}).length,c:"#FB7185"},
+    {l:"On Hold",v:myT.filter(function(t){return t.status==="hold";}).length,c:"#FCD34D"}
+  ].map(function(s){
+    return "<div style='background:var(--pn);border-radius:7px;padding:9px;text-align:center'>"
+      +"<div style='font-size:20px;font-weight:700;color:"+s.c+"'>"+s.v+"</div>"
+      +"<div style='font-size:10px;color:var(--mu)'>"+s.l+"</div></div>";
+  }).join("");
+  document.getElementById("profTasks").innerHTML=myT.slice(0,5).map(function(t){
+    return "<div style='display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid rgba(51,65,85,.4)'>"
+      +"<div style='flex:1;min-width:0'><div style='font-size:12px;font-weight:600;color:#fff'>"+esc(t.title)+"</div>"
+      +"<div style='font-size:10px;color:var(--mu)'>"+esc(t.department||"")+" · "+esc(t.dueDate||"")+"</div></div>"
+      +fpill(t.frequency)+spill(t.status)+"</div>";
+  }).join("")||"<div class='empty'>No tasks yet</div>";
+}
+
+// ── ASSIGN TASK
+var atFreq="", mFreq="";
+function pickF(el,prefix){
+  var f=el.dataset.freq;
+  el.closest(".fgrid").querySelectorAll(".fopt").forEach(function(o){o.className="fopt";});
+  var cls={daily:"fd",weekly:"fw",monthly:"fm",yearly:"fy",ott:"fo"};
+  el.classList.add(cls[f]||"fd");
+  if(prefix==="at") atFreq=f; else mFreq=f;
+}
+function submitTask(){
+  var title=document.getElementById("at_title").value.trim();
+  var dept=document.getElementById("at_dept").value;
+  var asg=document.getElementById("at_asg").value;
+  var start=document.getElementById("at_start").value;
+  var due=document.getElementById("at_due").value;
+  if(!title||!atFreq||!dept||!asg||!start||!due){toast("Please fill all required fields.","err");return;}
+  if(start>due){toast("Start date cannot be after due date.","err");return;}
+  var btn=document.getElementById("at_btn");
+  btn.disabled=true; btn.innerHTML="<span class='loader'></span>&nbsp;Assigning...";
+  api("addTask",{uid:U.id,title:title,description:document.getElementById("at_desc").value.trim(),
+    freq:atFreq,dept:dept,assigneeId:asg,priority:document.getElementById("at_pri").value,
+    startDate:start,dueDate:due},"Assigning...").then(function(r){
+    if(r&&r.ok){
+      clearAssign(); loadTasks();
+      showPopup("🎯","Task Assigned!",(r.msg||"Task has been assigned successfully."));
+    } else { toast((r&&r.msg)||"Error","err"); }
+    btn.disabled=false; btn.innerHTML="Assign Task";
+  });
+}
+function clearAssign(){
+  ["at_title","at_desc","at_start","at_due"].forEach(function(id){document.getElementById(id).value="";});
+  document.getElementById("at_pri").value="medium";
+  document.getElementById("at_dept").value="";
+  document.getElementById("at_asg").innerHTML="<option value=''>-- Select Dept first --</option>";
+  atFreq="";
+  document.querySelectorAll("#pgAssign .fopt").forEach(function(o){o.className="fopt";});
+}
+
+// ── MODAL TASK
+function oModal(id){
+  if(id==="mTask"){
+    mFreq="";
+    document.querySelectorAll("#mTask .fopt").forEach(function(o){o.className="fopt";});
+    ["m_title","m_start","m_due"].forEach(function(i){document.getElementById(i).value="";});
+    document.getElementById("m_pri").value="medium";
+    document.getElementById("m_dept").value="";
+    document.getElementById("m_asg").innerHTML="<option value=''>-- Select Dept first --</option>";
+    var opts="<option value=''>-- Select Department --</option>";
+    DEPTS.forEach(function(d){opts+="<option value='"+esc(d)+"'>"+esc(d)+"</option>";});
+    document.getElementById("m_dept").innerHTML=opts;
+  }
+  document.getElementById(id).classList.add("on");
+}
+function cModal(id){ document.getElementById(id).classList.remove("on"); }
+function submitModal(){
+  var title=document.getElementById("m_title").value.trim();
+  var dept=document.getElementById("m_dept").value;
+  var asg=document.getElementById("m_asg").value;
+  var start=document.getElementById("m_start").value;
+  var due=document.getElementById("m_due").value;
+  if(!title||!mFreq||!dept||!asg||!start||!due){toast("Please fill all required fields.","err");return;}
+  var btn=document.getElementById("m_btn");
+  btn.disabled=true; btn.innerHTML="<span class='loader'></span>&nbsp;Assigning...";
+  api("addTask",{uid:U.id,title:title,description:"",freq:mFreq,dept:dept,assigneeId:asg,
+    priority:document.getElementById("m_pri").value,startDate:start,dueDate:due},"Assigning...").then(function(r){
+    toast((r&&r.msg)||"Done", r&&r.ok?"ok":"err");
+    if(r&&r.ok){ cModal("mTask"); loadTasks().then(renderDash); }
+    btn.disabled=false; btn.innerHTML="Assign";
+  });
+}
+
+// ── ADD USER
+function submitUser(){
+  var code=document.getElementById("nu_code").value.trim().toUpperCase();
+  var name=document.getElementById("nu_name").value.trim();
+  var dept=document.getElementById("nu_dept").value.trim();
+  var email=document.getElementById("nu_email").value.trim();
+  var pass=document.getElementById("nu_pass").value.trim();
+  var role=document.getElementById("nu_role").value;
+  if(!code||!name||!dept||!email||!pass){toast("All fields are required.","err");return;}
+  api("addUser",{uid:U.id,code:code,name:name,dept:dept,email:email,pass:pass,role:role},"Adding...").then(function(r){
+    toast((r&&r.msg)||"Done", r&&r.ok?"ok":"err");
+    if(r&&r.ok){
+      cModal("mUser");
+      ["nu_code","nu_name","nu_dept","nu_email","nu_pass"].forEach(function(i){document.getElementById(i).value="";});
+      loadUsers().then(renderTeam);
+    }
+  });
+}
+
+// ── CHANGE PASSWORD
+function changePass(){
+  var o=document.getElementById("cpOld").value;
+  var n=document.getElementById("cpNew").value;
+  var c=document.getElementById("cpConf").value;
+  if(!o||!n){toast("Please fill all fields.","err");return;}
+  if(n!==c){toast("Passwords do not match.","err");return;}
+  if(n.length<4){toast("Min 4 characters.","err");return;}
+  api("changePassword",{uid:U.id,oldPass:o,newPass:n},"Updating...").then(function(r){
+    toast((r&&r.msg)||"Done", r&&r.ok?"ok":"err");
+    if(r&&r.ok)["cpOld","cpNew","cpConf"].forEach(function(i){document.getElementById(i).value="";});
+  });
+}
+
+// ── BULK ASSIGN
+function initBulk(){
+  // Populate dept dropdown
+  var opts="<option value=''>-- Select Department --</option>";
+  DEPTS.forEach(function(d){ opts+="<option value='"+esc(d)+"'>"+esc(d)+"</option>"; });
+  var bkDept=document.getElementById("bk_dept"); if(bkDept) bkDept.innerHTML=opts;
+  document.getElementById("bk_asg").innerHTML="<option value=''>-- Select Dept first --</option>";
+  bkParseLines();
+}
+
+function bkFillAssignees(){
+  var dept=document.getElementById("bk_dept").value;
+  var sel=document.getElementById("bk_asg");
+  if(!dept){ sel.innerHTML="<option value=''>-- Select Dept first --</option>"; return; }
+  var members=USERS.filter(function(u){ return u.dept===dept; });
+  var opts="<option value=''>-- Select Member --</option>";
+  members.forEach(function(u){
+    opts+="<option value='"+u.id+"'>"+esc(u.name)+" ["+esc(u.id)+"]</option>";
+  });
+  sel.innerHTML=opts;
+}
+
+function bkParseLines(){
+  var raw=document.getElementById("bk_paste").value;
+  var lines=raw.split("\n").map(function(l){return l.trim();}).filter(function(l){return l.length>0;}).slice(0,50);
+  document.getElementById("bkLineCount").textContent=lines.length+" task"+(lines.length!==1?"s":"")+" detected";
+  var wrap=document.getElementById("bkTableWrap");
+  if(!lines.length){ wrap.style.display="none"; document.getElementById("bkBody").innerHTML=""; return; }
+  wrap.style.display="";
+  var today=new Date().toISOString().slice(0,10);
+  var rows=lines.map(function(title,i){
+    return "<tr id='bkRow"+i+"'>"
+      +"<td><input type='checkbox' class='bkChk' data-idx='"+i+"' checked onchange='bkUpdateCount()'></td>"
+      +"<td><div class='tn'>"+esc(title)+"</div></td>"
+      +"<td><input type='date' class='fi bkStart' data-idx='"+i+"' value='"+today+"' style='padding:5px 8px;font-size:12px'></td>"
+      +"<td><input type='date' class='fi bkDue' data-idx='"+i+"' value='"+today+"' style='padding:5px 8px;font-size:12px'></td>"
+      +"<td><button class='btn btn-d btn-sm' onclick='bkRemoveRow("+i+")'>✕</button></td>"
+      +"</tr>";
+  }).join("");
+  document.getElementById("bkBody").innerHTML=rows;
+  // Sync all start/due dates when any changes (global date setter)
+  document.getElementById("bkBody").addEventListener("change",function(e){
+    if(e.target.classList.contains("bkStart")||e.target.classList.contains("bkDue")){
+      // do nothing extra - each row has its own dates
+    }
+  });
+  document.getElementById("bkSelectAll").checked=true;
+  bkUpdateCount();
+}
+
+function bkRemoveRow(idx){
+  var row=document.getElementById("bkRow"+idx);
+  if(row) row.remove();
+  bkUpdateCount();
+}
+
+function bkToggleAll(cb){
+  document.querySelectorAll(".bkChk").forEach(function(c){ c.checked=cb.checked; });
+  bkUpdateCount();
+}
+
+function bkUpdateCount(){
+  var checked=document.querySelectorAll(".bkChk:checked").length;
+  var total=document.querySelectorAll(".bkChk").length;
+  document.getElementById("bkSelCount").textContent=checked+" of "+total+" selected";
+}
+
+function bkClear(){
+  document.getElementById("bk_paste").value="";
+  document.getElementById("bk_freq").value="";
+  document.getElementById("bk_dept").value="";
+  document.getElementById("bk_asg").innerHTML="<option value=''>-- Select Dept first --</option>";
+  document.getElementById("bk_pri").value="medium";
+  document.getElementById("bkBody").innerHTML="";
+  document.getElementById("bkTableWrap").style.display="none";
+  document.getElementById("bkLineCount").textContent="0 tasks detected";
+}
+
+function submitBulk(){
+  var freq=document.getElementById("bk_freq").value;
+  var dept=document.getElementById("bk_dept").value;
+  var asg=document.getElementById("bk_asg").value;
+  var pri=document.getElementById("bk_pri").value;
+  if(!freq||!dept||!asg){toast("Please set Frequency, Department and Assignee.","err");return;}
+
+  // Collect checked rows
+  var tasks=[];
+  var checks=document.querySelectorAll(".bkChk:checked");
+  checks.forEach(function(chk){
+    var idx=chk.dataset.idx;
+    var row=document.getElementById("bkRow"+idx);
+    if(!row) return;
+    var titleEl=row.querySelector(".tn");
+    var startEl=row.querySelector(".bkStart");
+    var dueEl=row.querySelector(".bkDue");
+    if(!titleEl||!startEl||!dueEl) return;
+    var title=titleEl.textContent.trim();
+    var start=startEl.value;
+    var due=dueEl.value;
+    if(!title||!start||!due){toast("Task '"+title+"' is missing start or due date.","err");return;}
+    if(start>due){toast("Start date cannot be after due date for: "+title,"err");return;}
+    tasks.push({title:title,startDate:start,dueDate:due});
+  });
+
+  if(!tasks.length){toast("No tasks selected.","err");return;}
+
+  var btn=document.getElementById("bkSubmitBtn");
+  btn.disabled=true; btn.innerHTML="<span class='loader'></span>&nbsp;Assigning "+tasks.length+" tasks...";
+
+  api("bulkAddTasks",{uid:U.id,tasks:tasks,freq:freq,dept:dept,assigneeId:asg,priority:pri},"Saving "+tasks.length+" tasks...").then(function(r){
+    toast((r&&r.msg)||"Done", r&&r.ok?"ok":"err");
+    if(r&&r.ok){ bkClear(); loadTasks(); }
+    btn.disabled=false; btn.innerHTML="Submit All Tasks";
+  });
+}
+
+// ── EXPORT CSV
+function exportMyTasks(){
+  if(!TASKS||!TASKS.length){toast("No tasks to export.","err");return;}
+  var headers=["Title","Department","Frequency","Assigned By","Priority","Start Date","Due Date","Status","Timing","Remarks","Completed At"];
+  var rows=TASKS.map(function(t){
+    var tim="";
+    if(t.status==="done"||t.status==="not-done"){
+      if(t.completedAt&&t.dueDate){
+        var due=new Date(t.dueDate); due.setHours(23,59,59);
+        var comp=new Date(t.completedAt);
+        tim=comp<=due?"On Time":"Delayed";
+      }
+    } else { tim="Ongoing"; }
+    return [
+      csvVal(t.title),csvVal(t.department),csvVal(t.frequency),
+      csvVal(t.assignedByName),csvVal(t.priority),
+      csvVal(t.startDate),csvVal(t.dueDate),
+      csvVal(t.status),csvVal(tim),csvVal(t.remarks),
+      csvVal(t.completedAt)
+    ];
+  });
+  var csv=[headers.join(",")].concat(rows.map(function(r){return r.join(",");})).join("\n");
+  var blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a");
+  a.href=url; a.download="my_tasks_"+new Date().toISOString().slice(0,10)+".csv";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast("CSV downloaded!","ok");
+}
+function csvVal(v){
+  var s=String(v||"").replace(/"/g,"\"\"");
+  return s.indexOf(",")>-1||s.indexOf("\n")>-1||s.indexOf('"')>-1?'"'+s+'"':s;
+}
+
+// ── UTILS
+var tTmr;
+function toast(msg,type){
+  var el=document.getElementById("toast");
+  el.textContent=msg; el.className="toast on "+(type||"");
+  clearTimeout(tTmr); tTmr=setTimeout(function(){el.classList.remove("on");},3200);
+}
+function showLov(msg){document.getElementById("lovTxt").textContent=msg||"Loading...";document.getElementById("lov").classList.add("show");}
+function hideLov(){document.getElementById("lov").classList.remove("show");}
+// ── EMPLOYEES PAGE
+function renderEmployees(){
+  api("getDashboard",{uid:U.id},"Loading employees...").then(function(r){
+    if(!r||!r.ok){toast((r&&r.msg)||"Error","err");return;}
+    ALL_EMP_DATA = r.teamStats||[];
+    fillDeptDropdowns();
+    renderEmpCards(ALL_EMP_DATA);
+  });
+}
+
+// ── FILTER EMPLOYEES
+var ALL_EMP_DATA = [];
+function filterEmp(search){
+  var dept=document.getElementById("empDeptFilter").value;
+  var s=(search||"").toLowerCase();
+  var filtered=ALL_EMP_DATA.filter(function(u){
+    var matchDept=!dept||(u.dept||"")===dept;
+    var matchS=!s||u.name.toLowerCase().indexOf(s)>-1||u.id.toLowerCase().indexOf(s)>-1||(u.dept||"").toLowerCase().indexOf(s)>-1;
+    return matchDept&&matchS;
+  });
+  renderEmpCards(filtered);
+}
+function renderEmpCards(members){
+  var html=members.map(function(u){
+    var initStr=ini(u.name);
+    var bgc=u.role==="admin"?"linear-gradient(135deg,#6366F1,#4F46E5)":u.role==="manager"?"linear-gradient(135deg,#F59E0B,#D97706)":"linear-gradient(135deg,#10B981,#059669)";
+    var taskBar=u.total>0?Math.round(u.done/u.total*100):0;
+    return "<div class='emp-card'>"
+      +"<div class='emp-av' style='background:"+bgc+"'>"+initStr+"</div>"
+      +"<div class='emp-name'>"+esc(u.name)+"</div>"
+      +"<div class='emp-id'>"+esc(u.id)+"</div>"
+      +"<div class='emp-dept'>"+esc(u.dept||"—")+"</div>"
+      +"<div class='emp-role'><span class='pill p-"+u.role+"'>"+cap(u.role)+"</span></div>"
+      +"<div class='emp-stats'>"
+        +"<div class='emp-stat'><span class='emp-stat-v' style='color:#16A34A'>"+u.done+"</span><span class='emp-stat-l'>Done</span></div>"
+        +"<div class='emp-stat'><span class='emp-stat-v' style='color:#6366F1'>"+u.prog+"</span><span class='emp-stat-l'>Active</span></div>"
+        +"<div class='emp-stat'><span class='emp-stat-v' style='color:#D97706'>"+u.pending+"</span><span class='emp-stat-l'>Pending</span></div>"
+      +"</div>"
+      +"<div class='emp-bar-wrap'><div class='emp-bar' style='width:"+taskBar+"%'></div></div>"
+      +"<div style='font-size:10px;color:var(--mu);text-align:center;margin-top:4px'>"+taskBar+"% done · "+u.total+" tasks</div>"
+      +"<div class='emp-actions'>"
+        +"<button class='btn btn-meet btn-sm' data-empname='"+esc(u.name)+"'>📹 Meet</button>"
+      +"</div>"
+      +"</div>";
+  }).join("");
+  document.getElementById("empGrid").innerHTML=html||"<div class='empty'>No employees found</div>";
+}
+
+// ── NOTICES / ANNOUNCEMENTS
+var NOTICES = [];
+function renderNotices(){
+  api("getNotices",{uid:U.id},"Loading...").then(function(r){
+    if(r&&r.ok) NOTICES=r.notices||[];
+    renderNoticeList();
+  });
+}
+function renderNoticeList(){
+  var wrap=document.getElementById("noticeList");
+  if(!NOTICES.length){wrap.innerHTML="<div class='empty'>No announcements yet</div>";return;}
+  wrap.innerHTML=NOTICES.slice().reverse().map(function(n,i){
+    var idx=NOTICES.length-1-i;
+    var isAuthor=n.byId===U.id;
+    var canDel=U.role==="admin"||isAuthor;
+    return "<div class='notice-card'>"
+      +"<div class='notice-head'>"
+        +"<div class='av av-"+n.byRole[0]+"' style='width:34px;height:34px;font-size:12px'>"+ini(n.byName)+"</div>"
+        +"<div style='flex:1;min-width:0'>"
+          +"<div style='font-weight:600;color:#fff;font-size:13px'>"+esc(n.byName)+"</div>"
+          +"<div style='font-size:10px;color:var(--mu)'>"+esc(n.byRole)+" · "+esc(n.time)+"</div>"
+        +"</div>"
+        +(canDel?"<button class='btn btn-d btn-sm' onclick='deleteNotice("+idx+")'>✕</button>":"")
+      +"</div>"
+      +"<div class='notice-body'>"+esc(n.msg).replace(/\n/g,"<br>")+"</div>"
+      +(n.meetLink?"<a href='"+n.meetLink+"' target='_blank' class='btn btn-meet btn-sm' style='margin-top:8px;display:inline-flex'>📹 Join Meeting</a>":"")
+      +"</div>";
+  }).join("");
+}
+function postNotice(){
+  var msg=document.getElementById("noticeInput").value.trim();
+  if(!msg){toast("Please write something.","err");return;}
+  api("addNotice",{uid:U.id,msg:msg},"Posting...").then(function(r){
+    toast((r&&r.msg)||"Done",r&&r.ok?"ok":"err");
+    if(r&&r.ok){document.getElementById("noticeInput").value="";renderNotices();}
+  });
+}
+function postMeetNotice(){
+  var msg=document.getElementById("noticeInput").value.trim()||"Team meeting scheduled. Please join.";
+  var link="https://meet.google.com/new";
+  api("addNotice",{uid:U.id,msg:msg,meetLink:link},"Posting...").then(function(r){
+    toast((r&&r.msg)||"Done",r&&r.ok?"ok":"err");
+    if(r&&r.ok){
+      document.getElementById("noticeInput").value="";
+      renderNotices();
+      window.open(link,"_blank");
+      toast("Meeting link shared with team!","ok");
+    }
+  });
+}
+function deleteNotice(idx){
+  if(!confirm("Delete this announcement?"))return;
+  api("deleteNotice",{uid:U.id,noticeIdx:idx},"Deleting...").then(function(r){
+    toast((r&&r.msg)||"Done",r&&r.ok?"ok":"err");
+    if(r&&r.ok) renderNotices();
+  });
+}
+function openMeet(name){
+  var link="https://meet.google.com/new";
+  // Post a notice with meet link
+  api("addNotice",{uid:U.id,msg:U.name+" has invited "+name+" to a meeting. Click Join to connect.",meetLink:link},"Sharing...").then(function(r){
+    window.open(link,"_blank");
+    toast("Meeting link shared in Notices!","ok");
+    if(document.getElementById("pgNotice").classList.contains("on")) renderNotices();
+  });
+}
+
+// ── 3D POPUP ─────────────────────────────────────────────────
+function showPopup(icon, title, sub){
+  document.getElementById("popIcon").textContent = icon;
+  document.getElementById("popTitle").textContent = title;
+  document.getElementById("popSub").textContent = sub||"";
+  document.getElementById("popup3d").classList.add("show");
+}
+function closePopup(){
+  document.getElementById("popup3d").classList.remove("show");
+}
+
+// ── STAT CARD CLICK ───────────────────────────────────────────
+function openStatModal(filterKey, label){
+  api("getTasks",{uid:U.id},"Loading...").then(function(r){
+    var tasks=(r&&r.ok)?r.tasks||[]:TASKS;
+    var filtered;
+    if(filterKey==="all")       filtered=tasks;
+    else if(filterKey==="done") filtered=tasks.filter(function(t){return t.status==="done";});
+    else if(filterKey==="prog") filtered=tasks.filter(function(t){return t.status==="in-progress";});
+    else if(filterKey==="pending") filtered=tasks.filter(function(t){return t.status==="pending";});
+    else if(filterKey==="notdone") filtered=tasks.filter(function(t){return t.status==="not-done";});
+    else if(filterKey==="hold")    filtered=tasks.filter(function(t){return t.status==="hold";});
+    else if(filterKey==="ontime")  filtered=tasks.filter(function(t){
+      if(t.status!=="done"&&t.status!=="not-done") return false;
+      if(!t.completedAt||!t.dueDate) return false;
+      var d=new Date(t.dueDate); d.setHours(23,59,59);
+      return new Date(t.completedAt)<=d;
+    });
+    else if(filterKey==="delayed") filtered=tasks.filter(function(t){
+      if(t.status!=="done"&&t.status!=="not-done") return false;
+      if(!t.completedAt||!t.dueDate) return false;
+      var d=new Date(t.dueDate); d.setHours(23,59,59);
+      return new Date(t.completedAt)>d;
+    });
+    else filtered=tasks;
+
+    document.getElementById("statModalTitle").textContent=(label||filterKey)+" ("+filtered.length+" tasks)";
+    document.getElementById("statModalHead").innerHTML=
+      "<tr>"
+      +"<th style='width:32px'><input type='checkbox' id='statChkAll' onchange='statToggleAll(this)'></th>"
+      +"<th>Task</th><th>Dept</th><th>Type</th><th>Assigned To</th>"
+      +"<th>Priority</th><th>Start</th><th>Due</th><th>Status</th><th>Timing</th>"
+      +"</tr>";
+    document.getElementById("statModalBody").innerHTML=filtered.length
+      ?filtered.map(function(t){
+          var isDone=t.status==="done"||t.status==="not-done"||t.status==="hold";
+          return "<tr>"
+            +"<td><input type='checkbox' class='stat-chk' data-tid='"+esc(t.id)+"'"+(isDone?" disabled":"")+" onchange='statCountSel()'></td>"
+            +"<td><div class='tn'>"+esc(t.title)+"</div></td>"
+            +"<td style='font-size:11px'>"+esc(t.department||"")+"</td>"
+            +"<td>"+fpill(t.frequency)+"</td>"
+            +"<td style='font-size:11px'>"+esc(t.assigneeName||"—")+"<br><small style='color:#94A3B8'>"+esc(t.assigneeId||"")+"</small></td>"
+            +"<td>"+priBadge(t.priority)+"</td>"
+            +"<td style='font-size:11px;color:#64748B'>"+esc(t.startDate||"")+"</td>"
+            +"<td style='font-size:11px;color:#64748B'>"+esc(t.dueDate||"")+"</td>"
+            +"<td>"+spill(t.status)+"</td>"
+            +"<td>"+timing(t)+"</td>"
+            +"</tr>";
+        }).join("")
+      :"<tr><td colspan='10' style='text-align:center;padding:24px;color:#94A3B8'>No tasks in this category</td></tr>";
+    document.getElementById("statPanelCount").textContent="0 selected";
+    document.getElementById("statChkAll").checked=false;
+    oModal("mStatDetail");
+  });
+}
+
+// ── TABLE FILTER SYSTEM ───────────────────────────────────────
+var TF = {}; // Table Filters: { tableId: { colIdx: filterValue } }
+
+function buildFilterHeaders(tableId, headers){
+  // Row 1: column headers
+  var row1 = "<tr>";
+  headers.forEach(function(h){
+    if(h.key==="chk"){
+      row1 += "<th style='width:36px'><input type='checkbox' class='tbl-chk-all' data-tbl='"+tableId+"'></th>";
+    } else {
+      row1 += "<th><span style='font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.06em'>"+h.label+"</span></th>";
+    }
+  });
+  row1 += "</tr>";
+
+  // Row 2: filter dropdowns
+  var row2 = "<tr class='flt-row'>";
+  headers.forEach(function(h){
+    if(h.key==="chk"){
+      row2 += "<td></td>";
+    } else if(!h.key || h.key==="remove"){
+      row2 += "<td></td>";
+    } else {
+      var data = ALL_TABLE_DATA[tableId]||[];
+      var vals = {};
+      data.forEach(function(row){ var v=String(row[h.key]||"").trim(); if(v) vals[v]=true; });
+      var unique = Object.keys(vals).sort();
+      var curFlt = (COL_FILTERS[tableId]&&COL_FILTERS[tableId][h.key])||"";
+      var opts = "<option value=''>All</option>";
+      unique.forEach(function(v){
+        opts += "<option value='"+esc(v)+"'"+(curFlt===v?" selected":"")+">"+ esc(v)+"</option>";
+      });
+      // Use data attributes that will be read by attachFilterListeners
+      row2 += "<td><select class='flt-sel' data-tbl='"+tableId+"' data-key='"+h.key+"'>"+opts+"</select></td>";
+    }
+  });
+  row2 += "</tr>";
+  return row1+row2;
+}
+
+// Attach direct event listeners to filter selects after innerHTML is set
+function attachFilterListeners(headEl){
+  if(!headEl) return;
+  headEl.querySelectorAll("select.flt-sel").forEach(function(sel){
+    sel.onchange = function(){
+      var tbl = this.getAttribute("data-tbl");
+      var key = this.getAttribute("data-key");
+      var val = this.value;
+      if(!COL_FILTERS[tbl]) COL_FILTERS[tbl]={};
+      if(val){ COL_FILTERS[tbl][key]=val; }
+      else   { delete COL_FILTERS[tbl][key]; }
+      reRenderTable(tbl);
+    };
+  });
+}
+
+// Filter event delegation - all filter interactions handled here
+document.addEventListener("click", function(e){
+  // Toggle filter dropdown
+  var fb = e.target.closest("[data-tbl][data-col][data-key]");
+  if(fb && fb.tagName==="BUTTON"){
+    e.stopPropagation();
+    var dropId = "flt_"+fb.dataset.tbl+"_"+fb.dataset.col;
+    document.querySelectorAll(".flt-drop").forEach(function(d){
+      if(d.id!==dropId) d.classList.remove("open");
+    });
+    var drop = document.getElementById(dropId);
+    if(drop){ drop.classList.toggle("open"); drop.querySelector("input").focus(); }
+    return;
+  }
+  // Clear filter
+  var clr = e.target.closest("[data-clr-tbl]");
+  if(clr){
+    var tbl=clr.dataset.clrTbl, col=clr.dataset.clrCol, key=clr.dataset.clrKey;
+    if(TF[tbl]) delete TF[tbl][key];
+    var inp = document.querySelector("#flt_"+tbl+"_"+col+" input");
+    if(inp) inp.value="";
+    document.getElementById("flt_"+tbl+"_"+col).classList.remove("open");
+    reRenderTable(tbl);
+    return;
+  }
+  // Close all dropdowns on outside click
+  if(!e.target.closest(".flt-drop") && !e.target.closest("[data-tbl]")){
+    document.querySelectorAll(".flt-drop").forEach(function(d){d.classList.remove("open");});
+  }
+});
+
+// Filter input handler
+document.addEventListener("input", function(e){
+  var inp = e.target;
+  if(inp.dataset.tbl && inp.dataset.key){
+    if(!TF[inp.dataset.tbl]) TF[inp.dataset.tbl]={};
+    TF[inp.dataset.tbl][inp.dataset.key] = inp.value.toLowerCase().trim();
+    reRenderTable(inp.dataset.tbl);
+  }
+});
+
+function applyFilters(tasks, tableId){
+  return applyColFilters(tasks, tableId);
+}
+
+function reRenderTable(tableId){
+  if(tableId==="tblMine")  renderMine();
+  else if(tableId==="tblAll") renderAll();
+  else if(tableId==="tblTeam") renderTeam();
+}
+function clearAllFilters(tableId){
+  COL_FILTERS[tableId]={};
+  reRenderTable(tableId);
+}
+
+
+// ── STAT CARD → INLINE PANEL ─────────────────────────────────
+var STAT_ALL_TASKS = [];
+
+function openStatModal(filterKey, label){
+  api("getTasks",{uid:U.id}).then(function(r){
+    var tasks = (r&&r.ok) ? r.tasks||[] : TASKS;
+    STAT_ALL_TASKS = tasks;
+    var filtered;
+    if(filterKey==="all")       filtered=tasks;
+    else if(filterKey==="done") filtered=tasks.filter(function(t){return t.status==="done";});
+    else if(filterKey==="prog") filtered=tasks.filter(function(t){return t.status==="in-progress";});
+    else if(filterKey==="pending") filtered=tasks.filter(function(t){return t.status==="pending";});
+    else if(filterKey==="notdone") filtered=tasks.filter(function(t){return t.status==="not-done";});
+    else if(filterKey==="hold")    filtered=tasks.filter(function(t){return t.status==="hold";});
+    else if(filterKey==="ontime")  filtered=tasks.filter(function(t){
+      if(t.status!=="done"&&t.status!=="not-done") return false;
+      if(!t.completedAt||!t.dueDate) return false;
+      var d=new Date(t.dueDate); d.setHours(23,59,59);
+      return new Date(t.completedAt)<=d;
+    });
+    else if(filterKey==="delayed") filtered=tasks.filter(function(t){
+      if(t.status!=="done"&&t.status!=="not-done") return false;
+      if(!t.completedAt||!t.dueDate) return false;
+      var d=new Date(t.dueDate); d.setHours(23,59,59);
+      return new Date(t.completedAt)>d;
+    });
+    else filtered=tasks;
+
+    document.getElementById("statPanelTitle").textContent = label+" — "+filtered.length+" task(s)";
+    document.getElementById("statPanelCount").textContent = "0 selected";
+
+    var rows = filtered.map(function(t){
+      var isDone = t.status==="done"||t.status==="not-done"||t.status==="hold";
+      return "<tr>"
+        +"<td><input type='checkbox' class='stat-chk' data-tid='"+esc(t.id)+"' "+(isDone?"disabled":"")+" onchange='statCountSel()'></td>"
+        +"<td><div class='tn'>"+esc(t.title)+"</div></td>"
+        +"<td style='font-size:11px'>"+esc(t.department||"")+"</td>"
+        +"<td>"+fpill(t.frequency)+"</td>"
+        +"<td style='font-size:11px'>"+esc(t.assigneeName||"—")+"<br><span style='color:#94A3B8;font-size:10px'>"+esc(t.assigneeId||"")+"</span></td>"
+        +"<td>"+priBadge(t.priority)+"</td>"
+        +"<td style='font-size:11px;color:#64748B'>"+esc(t.startDate||"")+"</td>"
+        +"<td style='font-size:11px;color:#64748B'>"+esc(t.dueDate||"")+"</td>"
+        +"<td>"+spill(t.status)+"</td>"
+        +"<td>"+timing(t)+"</td>"
+        +"</tr>";
+    }).join("");
+
+    document.getElementById("statPanelBody").innerHTML = rows ||
+      "<tr><td colspan='10' style='text-align:center;padding:24px;color:#94A3B8'>No tasks in this category</td></tr>";
+    document.getElementById("statChkAll").checked = false;
+
+    var panel = document.getElementById("statFilterPanel");
+    panel.style.display = "";
+    // Scroll into view
+    panel.scrollIntoView({behavior:"smooth", block:"start"});
+  });
+}
+
+function closeStatPanel(){
+  document.getElementById("statFilterPanel").style.display="none";
+}
+function statToggleAll(cb){
+  document.querySelectorAll(".stat-chk:not(:disabled)").forEach(function(c){c.checked=cb.checked;});
+  statCountSel();
+}
+function statCountSel(){
+  var n=document.querySelectorAll(".stat-chk:checked").length;
+  document.getElementById("statPanelCount").textContent = n+" selected";
+}
+function bulkDoneFromPanel(){
+  var ids=[];
+  document.querySelectorAll(".stat-chk:checked").forEach(function(c){ ids.push(c.dataset.tid); });
+  if(!ids.length){toast("Please select at least one task.","err");return;}
+  if(!confirm("Mark "+ids.length+" task(s) as Done?"))return;
+  showLov("Updating "+ids.length+" tasks...");
+  api("bulkUpdateStatus",{uid:U.id,taskIds:ids,status:"done",remarks:""}).then(function(r){
+    hideLov();
+    toast((r&&r.msg)||"Done", r&&r.ok?"ok":"err");
+    if(r&&r.ok){
+      cModal("mStatDetail");
+      loadTasks().then(function(){ renderDash(); });
+      showPopup("✅","All Done!",ids.length+" task(s) marked as done.");
+    }
+  });
+}
+
+// ── CHECKBOX BULK ACTIONS ─────────────────────────────────────
+// Bulk bar shown at bottom of My Tasks / All Tasks
+function tblToggleAll(cb, tableId){
+  document.querySelectorAll(".tbl-chk[data-tbl='"+tableId+"']:not(:disabled)").forEach(function(c){c.checked=cb.checked;});
+  updateBulkBar(tableId);
+}
+function updateBulkBar(tableId){
+  var n=document.querySelectorAll(".tbl-chk[data-tbl='"+tableId+"']:checked").length;
+  var bar=document.getElementById("bulk_"+tableId);
+  if(bar) bar.style.display=n>0?"flex":"none";
+  var cnt=document.getElementById("bulkCnt_"+tableId);
+  if(cnt) cnt.textContent=n+" selected";
+}
+function bulkMarkDone(tableId){
+  var ids=[];
+  document.querySelectorAll(".tbl-chk[data-tbl='"+tableId+"']:checked").forEach(function(c){ ids.push(c.dataset.tid); });
+  if(!ids.length){toast("No tasks selected.","err");return;}
+  if(!confirm("Mark "+ids.length+" task(s) as Done?"))return;
+  showLov("Updating "+ids.length+" tasks...");
+  // Send ALL ids in ONE call — backend processes in batch
+  api("bulkUpdateStatus",{uid:U.id,taskIds:ids,status:"done",remarks:""}).then(function(r){
+    hideLov();
+    toast((r&&r.msg)||"Done", r&&r.ok?"ok":"err");
+    if(r&&r.ok){
+      loadTasks().then(function(){ renderMine(); renderAll(); renderDash(); });
+      showPopup("✅","All Done!",ids.length+" task(s) marked as done.");
+    }
+  });
+}
+
+// ── COLUMN FILTER — UNIQUE VALUES CHECKLIST ───────────────────
+var COL_FILTERS = {}; // {tableId: {key: Set of selected values}}
+var ALL_TABLE_DATA = { tblMine:[], tblAll:[], tblTeam:[] };
+
+function getUniqueVals(data, key){
+  var vals={};
+  data.forEach(function(row){ var v=String(row[key]||"").trim(); if(v) vals[v]=true; });
+  return Object.keys(vals).sort();
+}
+
+function openColFilter(e, tableId, key, label){
+  e.stopPropagation();
+  // Remove any existing filter dropdowns
+  document.querySelectorAll(".col-flt-dd").forEach(function(d){ d.remove(); });
+
+  var data = ALL_TABLE_DATA[tableId] || [];
+  var unique = getUniqueVals(data, key);
+  var sel = (COL_FILTERS[tableId]&&COL_FILTERS[tableId][key]) ? COL_FILTERS[tableId][key] : {};
+
+  var btn = e.currentTarget;
+  var rect = btn.closest("th").getBoundingClientRect();
+  var dd = document.createElement("div");
+  dd.className = "col-flt-dd";
+  dd.style.cssText = "position:fixed;left:"+rect.left+"px;top:"+(rect.bottom+2)+"px;background:#fff;border:1px solid #E2E8F0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:9999;min-width:180px;padding:8px;max-height:280px;overflow-y:auto";
+
+  var html = "<div style='font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.05em;padding:4px 6px;margin-bottom:6px'>Filter: "+label+"</div>";
+  html += "<div style='display:flex;gap:6px;margin-bottom:8px'>"
+    +"<button data-saf-tbl='"+tableId+"' data-saf-key='"+key+"' style='font-size:11px;color:#6366F1;background:none;border:none;cursor:pointer;padding:0'>All</button>"
+    +"<span style='color:#E2E8F0'>|</span>"
+    +"<button data-clf-tbl='"+tableId+"' data-clf-key='"+key+"' style='font-size:11px;color:#EF4444;background:none;border:none;cursor:pointer;padding:0'>Clear</button>"
+    +"</div>";
+
+  if(!unique.length){
+    html += "<div style='font-size:12px;color:#94A3B8;padding:8px'>No values</div>";
+  } else {
+    unique.forEach(function(v){
+      var chkd = !sel[key] || Object.keys(sel[key]||{}).length===0 || sel[key][v];
+      html += "<label style='display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:12px;color:#334155'>"
+        +"<input type='checkbox' "+(chkd?"checked":"")+" data-flt-tbl='"+tableId+"' data-flt-key='"+key+"' data-flt-val='"+esc(v)+"'>"
+        +esc(v)
+        +"</label>";
+    });
+  }
+  html += "<div style='border-top:1px solid #F1F5F9;margin-top:8px;padding-top:6px'>"
+    +"<button data-apf-tbl='"+tableId+"' data-apf-key='"+key+"' style='width:100%;background:#6366F1;color:#fff;border:none;border-radius:6px;padding:6px;font-size:12px;font-weight:600;cursor:pointer'>Apply</button>"
+    +"</div>";
+
+  dd.innerHTML = html;
+  document.body.appendChild(dd);
+
+  // Click outside to close
+  setTimeout(function(){
+    document.addEventListener("click", function closeFlt(ev){
+      if(!dd.contains(ev.target)){ dd.remove(); document.removeEventListener("click",closeFlt); }
+    });
+  }, 0);
+}
+
+function applyChkFilter(tableId, key){
+  var checked={};
+  document.querySelectorAll("[data-flt-tbl='"+tableId+"'][data-flt-key='"+key+"']:checked").forEach(function(c){
+    checked[c.dataset.fltVal]=true;
+  });
+  if(!COL_FILTERS[tableId]) COL_FILTERS[tableId]={};
+  // If all values selected or none, clear the filter for this key
+  var total=document.querySelectorAll("[data-flt-tbl='"+tableId+"'][data-flt-key='"+key+"']").length;
+  if(Object.keys(checked).length===0||Object.keys(checked).length===total){
+    delete COL_FILTERS[tableId][key];
+  } else {
+    COL_FILTERS[tableId][key]=checked;
+  }
+  reRenderTable(tableId);
+}
+function selectAllFlt(tableId,key){
+  document.querySelectorAll("[data-flt-tbl='"+tableId+"'][data-flt-key='"+key+"']").forEach(function(c){c.checked=true;});
+}
+function clearFlt(tableId,key){
+  document.querySelectorAll("[data-flt-tbl='"+tableId+"'][data-flt-key='"+key+"']").forEach(function(c){c.checked=false;});
+}
+
+function applyColFilters(data, tableId){
+  var filters = COL_FILTERS[tableId]||{};
+  if(!Object.keys(filters).length) return data;
+  return data.filter(function(row){
+    return Object.keys(filters).every(function(key){
+      var fval = filters[key];
+      if(!fval) return true;
+      var rowval = String(row[key]||"").trim().toLowerCase();
+      return rowval === fval.toLowerCase();
+    });
+  });
+}
+
+
+</script>
+</body>
+</html>

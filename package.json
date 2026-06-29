@@ -1,0 +1,10 @@
+{
+  "name": "task-management-supabase",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Task Management System — frontend (static HTML) + Vercel serverless API + Supabase database. Originally a Google Apps Script + Google Sheets app.",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4"
+  }
+}
