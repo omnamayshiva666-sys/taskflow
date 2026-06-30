@@ -664,70 +664,134 @@ const handlers = {
     return { ok: true, msg: 'Meeting cancelled.' };
   },
 
-  // ---------------- CHAT / DIRECT MESSAGES ----------------
-  // Open to everyone -- any user can message any other user, regardless
-  // of team/role. Messages can never be deleted by anyone.
+  // ---------------- CHAT / MESSAGES ----------------
+  // Open to everyone -- any user can start a conversation (1:1 or group)
+  // with any other user(s), regardless of team/role. Messages can never
+  // be deleted by anyone.
+
+  // Finds or creates a conversation for the given participant list.
+  // If exactly 2 people (you + 1 other) and one already exists, reuse it
+  // instead of creating duplicates every time you click the same person.
+  async startConversation(p) {
+    const caller = await getCaller(p.uid);
+    let participantIds = Array.isArray(p.participantIds) ? p.participantIds.map(String) : [];
+    let name = String(p.name || '').trim();
+    if (!participantIds.includes(caller.id)) participantIds.push(caller.id);
+    participantIds = Array.from(new Set(participantIds));
+    if (participantIds.length < 2) return { ok: false, msg: 'Select at least one other person.' };
+
+    const users = await getAllUsers();
+    const byId = {}; users.forEach(u => { byId[u.id] = u; });
+    participantIds = participantIds.filter(id => byId[id]);
+
+    const isDm = participantIds.length === 2;
+
+    if (isDm) {
+      // try to reuse an existing 1:1 conversation between these two people
+      const { data: existing } = await supabase.from('conversations').select('*').eq('type', 'dm');
+      const found = (existing || []).find(c => {
+        const ps = c.participants || [];
+        return ps.length === 2 && ps.includes(participantIds[0]) && ps.includes(participantIds[1]);
+      });
+      if (found) return { ok: true, conversationId: found.id, msg: 'ok' };
+    }
+
+    if (!name) {
+      name = isDm ? null : participantIds.filter(id => id !== caller.id).map(id => byId[id].name).join(', ');
+    }
+
+    const cid = 'C' + Date.now();
+    const { error } = await supabase.from('conversations').insert({
+      id: cid, type: isDm ? 'dm' : 'group', name,
+      participants: participantIds, created_by: caller.id, created_by_name: caller.name
+    });
+    if (error) return { ok: false, msg: error.message };
+    return { ok: true, conversationId: cid, msg: 'Chat started.' };
+  },
 
   async listConversations(p) {
     const caller = await getCaller(p.uid);
-    const { data, error } = await supabase
-      .from('messages').select('*')
-      .or(`from_id.eq.${caller.id},to_id.eq.${caller.id}`)
-      .order('created_at', { ascending: false });
+    const { data: convs, error } = await supabase.from('conversations').select('*');
     if (error) return { ok: false, msg: error.message };
 
-    const byPartner = {};
-    (data || []).forEach(m => {
-      const partnerId = m.from_id === caller.id ? m.to_id : m.from_id;
-      const partnerName = m.from_id === caller.id ? m.to_name : m.from_name;
-      if (!byPartner[partnerId]) {
-        byPartner[partnerId] = {
-          userId: partnerId, name: partnerName, lastMsg: m.body,
-          lastTime: m.created_at, unread: 0
-        };
+    const mine = (convs || []).filter(c => (c.participants || []).includes(caller.id));
+    if (!mine.length) return { ok: true, conversations: [] };
+
+    const users = await getAllUsers();
+    const byId = {}; users.forEach(u => { byId[u.id] = u; });
+
+    const ids = mine.map(c => c.id);
+    const { data: msgs } = await supabase.from('messages').select('*').in('conversation_id', ids).order('created_at', { ascending: false });
+
+    const list = mine.map(c => {
+      const convMsgs = (msgs || []).filter(m => m.conversation_id === c.id);
+      const last = convMsgs[0]; // already sorted desc
+      const unread = convMsgs.filter(m => m.from_id !== caller.id && !(m.read_by || []).includes(caller.id)).length;
+      let displayName = c.name;
+      if (c.type === 'dm') {
+        const otherId = (c.participants || []).find(id => id !== caller.id);
+        displayName = byId[otherId] ? byId[otherId].name : 'Unknown';
       }
-      if (m.to_id === caller.id && !m.read_at) byPartner[partnerId].unread++;
+      return {
+        conversationId: c.id, type: c.type, name: displayName || 'Group Chat',
+        participantCount: (c.participants || []).length,
+        lastMsg: last ? last.body : '', lastTime: last ? last.created_at : c.created_at,
+        unread
+      };
     });
-    const list = Object.values(byPartner).sort((a, b) => new Date(b.lastTime) - new Date(a.lastTime));
+    list.sort((a, b) => new Date(b.lastTime) - new Date(a.lastTime));
     return { ok: true, conversations: list };
   },
 
   async getConversation(p) {
     const caller = await getCaller(p.uid);
-    const withId = String(p.withId || '').trim();
-    if (!withId) return { ok: false, msg: 'Missing user.' };
+    const conversationId = String(p.conversationId || '').trim();
+    const { data: conv } = await supabase.from('conversations').select('*').eq('id', conversationId).maybeSingle();
+    if (!conv || !(conv.participants || []).includes(caller.id)) return { ok: false, msg: 'Conversation not found.' };
 
-    const { data, error } = await supabase
-      .from('messages').select('*')
-      .or(`and(from_id.eq.${caller.id},to_id.eq.${withId}),and(from_id.eq.${withId},to_id.eq.${caller.id})`)
-      .order('created_at', { ascending: true });
+    const { data, error } = await supabase.from('messages').select('*').eq('conversation_id', conversationId).order('created_at', { ascending: true });
     if (error) return { ok: false, msg: error.message };
 
-    // mark incoming messages as read
-    const unreadIds = (data || []).filter(m => m.to_id === caller.id && !m.read_at).map(m => m.id);
-    if (unreadIds.length) await supabase.from('messages').update({ read_at: new Date().toISOString() }).in('id', unreadIds);
+    // mark as read by me
+    const toMark = (data || []).filter(m => m.from_id !== caller.id && !(m.read_by || []).includes(caller.id));
+    for (const m of toMark) {
+      const newReadBy = [...(m.read_by || []), caller.id];
+      await supabase.from('messages').update({ read_by: newReadBy }).eq('id', m.id);
+    }
+
+    const users = await getAllUsers();
+    const byId = {}; users.forEach(u => { byId[u.id] = u; });
+    let convName = conv.name;
+    if (conv.type === 'dm') {
+      const otherId = (conv.participants || []).find(id => id !== caller.id);
+      convName = byId[otherId] ? byId[otherId].name : 'Unknown';
+    }
 
     return {
       ok: true,
+      conversation: {
+        id: conv.id, type: conv.type, name: convName || 'Group Chat',
+        participants: (conv.participants || []).map(id => (byId[id] ? byId[id].name : id))
+      },
       messages: (data || []).map(m => ({
-        id: m.id, fromId: m.from_id, fromName: m.from_name, toId: m.to_id,
-        body: m.body, time: m.created_at, mine: m.from_id === caller.id
+        id: m.id, fromId: m.from_id, fromName: m.from_name, body: m.body,
+        time: m.created_at, mine: m.from_id === caller.id
       }))
     };
   },
 
   async sendMessage(p) {
     const caller = await getCaller(p.uid);
-    const toId = String(p.toId || '').trim();
+    const conversationId = String(p.conversationId || '').trim();
     const body = String(p.body || '').trim();
-    if (!toId || !body) return { ok: false, msg: 'Message cannot be empty.' };
-    if (toId === caller.id) return { ok: false, msg: 'You cannot message yourself.' };
+    if (!conversationId || !body) return { ok: false, msg: 'Message cannot be empty.' };
 
-    const { data: target } = await supabase.from('users').select('*').eq('id', toId).maybeSingle();
-    if (!target) return { ok: false, msg: 'Recipient not found.' };
+    const { data: conv } = await supabase.from('conversations').select('*').eq('id', conversationId).maybeSingle();
+    if (!conv || !(conv.participants || []).includes(caller.id)) return { ok: false, msg: 'You are not part of this conversation.' };
 
     const { error } = await supabase.from('messages').insert({
-      from_id: caller.id, from_name: caller.name, to_id: toId, to_name: target.name, body
+      conversation_id: conversationId, from_id: caller.id, from_name: caller.name,
+      to_id: null, body, read_by: [caller.id]
     });
     if (error) return { ok: false, msg: error.message };
     return { ok: true, msg: 'sent' };
