@@ -10,7 +10,8 @@ create table if not exists users (
   name        text not null,
   email       text unique not null,
   password    text not null,             -- plain text, same as the old sheet (see README security note)
-  role        text not null default 'user' check (role in ('admin','manager','user')),
+  role        text not null default 'l3' check (role in ('superadmin','admin','l1','l2','l3')),
+  reports_to  text references users(id),
   created_at  timestamptz default now()
 );
 
@@ -83,10 +84,10 @@ alter table activity_log  enable row level security;
 -- Seed data — same default accounts as the original Apps Script setup.
 -- ⚠️ Change these passwords after your first login in production!
 -- ----------------------------------------------------------------
-insert into users (id, department, name, email, password, role) values
-  ('EMP001','Administration','Arjun Sharma','admin@company.com','admin123','admin'),
-  ('EMP002','Sales','Priya Mehta','manager@company.com','mgr123','manager'),
-  ('EMP003','Sales','Rahul Gupta','rahul@company.com','user123','user'),
-  ('EMP004','IT','Sneha Patel','sneha@company.com','user123','user'),
-  ('EMP005','IT','Vikram Singh','vikram@company.com','user123','user')
+insert into users (id, department, name, email, password, role, reports_to) values
+  ('EMP001','Administration','Arjun Sharma','admin@company.com','admin123','superadmin', null),
+  ('EMP002','Sales','Priya Mehta','manager@company.com','mgr123','l1', null),
+  ('EMP003','Sales','Rahul Gupta','rahul@company.com','user123','l2', 'EMP002'),
+  ('EMP004','IT','Sneha Patel','sneha@company.com','user123','l3', 'EMP003'),
+  ('EMP005','IT','Vikram Singh','vikram@company.com','user123','l3', 'EMP003')
 on conflict (id) do nothing;

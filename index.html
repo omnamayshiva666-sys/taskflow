@@ -111,6 +111,10 @@ tr:hover td{background:#F8FAFF}
 .p-admin{background:#EEF2FF;color:#6366F1}
 .p-manager{background:#FFFBEB;color:#D97706}
 .p-user{background:#F0FDF4;color:#16A34A}
+.p-superadmin{background:#1E1B4B;color:#fff}
+.p-l1{background:#FFFBEB;color:#D97706}
+.p-l2{background:#EEF2FF;color:#6366F1}
+.p-l3{background:#F0FDF4;color:#16A34A}
 .pdot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle}
 
 /* ── FREQ GRID ── */
@@ -577,8 +581,9 @@ th{position:relative}
   <div class="mh"><h2>Add Team Member</h2><button class="mclose" onclick="cModal('mUser')">✕</button></div>
   <div class="fr">
     <div class="fg"><label class="fl">Employee Code *</label><input class="fi" id="nu_code" placeholder="e.g. EMP010"></div>
-    <div class="fg"><label class="fl">Role *</label><select class="fi" id="nu_role"><option value="user">User</option><option value="manager">Manager</option><option value="admin">Admin</option></select></div>
+    <div class="fg"><label class="fl">Access Level *</label><select class="fi" id="nu_role" onchange="nuRoleChanged()"><option value="l3">L3 - User</option><option value="l2">L2 - Manager</option><option value="l1">L1 - HOD</option><option value="admin">Admin</option><option value="superadmin">Super Admin</option></select></div>
   </div>
+  <div class="fg" id="nu_reportsto_wrap"><label class="fl">Reports To <span style="font-weight:400;text-transform:none;color:var(--mu)">(their direct superior in the hierarchy)</span></label><select class="fi" id="nu_reportsto"><option value="">-- None / Top Level --</option></select></div>
   <div class="fr">
     <div class="fg"><label class="fl">Full Name *</label><input class="fi" id="nu_name" placeholder="Full name"></div>
     <div class="fg"><label class="fl">Department *</label><input class="fi" id="nu_dept" placeholder="e.g. Sales"></div>
@@ -779,23 +784,26 @@ function boot(){
     showPopup("👋","Welcome Back!","Signed in as "+U.name);
   });
 }
+var ROLE_LABEL = {superadmin:"Super Admin",admin:"Admin",l1:"L1 (HOD)",l2:"L2 (Manager)",l3:"L3 (User)"};
 function setRole(){
   var av=document.getElementById("sbav");
-  av.textContent=ini(U.name); av.className="av av-"+(U.role[0]);
+  av.textContent=ini(U.name); av.className="av "+avc(U.role);
   document.getElementById("sbname").textContent=U.name;
-  document.getElementById("sbrole").textContent=U.role;
-  document.getElementById("sbsub").textContent=U.role==="admin"?"Admin View":U.role==="manager"?"Manager View":"My Workspace";
+  document.getElementById("sbrole").textContent=ROLE_LABEL[U.role]||U.role;
+  document.getElementById("sbsub").textContent=(ROLE_LABEL[U.role]||U.role)+" View";
   var priv=isPriv();
-  ["mgrSec","navAssign","navAll","navTeam","topAdd"].forEach(function(id){
+  ["mgrSec","navAssign","navAll","topAdd"].forEach(function(id){
     var el=document.getElementById(id); if(el) el.style.display=priv?"":"none";
   });
-  var ab=document.getElementById("addMbrBtn"); if(ab) ab.style.display=U.role==="admin"?"":"none";
-  var nb2=document.getElementById("navBulk"); if(nb2) nb2.style.display=U.role==="admin"?"":"none";
+  var nt=document.getElementById("navTeam"); if(nt) nt.style.display=(U.role!=="l3")?"":"none";
+  var canAddMembers = U.role==="superadmin"||U.role==="admin"||U.role==="l1";
+  var ab=document.getElementById("addMbrBtn"); if(ab) ab.style.display=canAddMembers?"":"none";
+  var nb2=document.getElementById("navBulk"); if(nb2) nb2.style.display=(U.role==="superadmin"||U.role==="admin")?"":"none";
   // update tbBadge with role
   var badge=document.getElementById("tbBadge");
-  if(badge){badge.textContent=U.role.toUpperCase();badge.style.display="";}
+  if(badge){badge.textContent=(ROLE_LABEL[U.role]||U.role).toUpperCase();badge.style.display="";}
 }
-function isPriv(){ return U&&(U.role==="admin"||U.role==="manager"); }
+function isPriv(){ return U&&(U.role==="superadmin"||U.role==="admin"||U.role==="l1"||U.role==="l2"); }
 
 // ── DATA
 function loadUsers(){
@@ -831,16 +839,30 @@ function resetAssigneeDropdowns(){
     if(el) el.innerHTML="<option value=''>-- Select Dept first --</option>";
   });
 }
+// ── HIERARCHY HELPER (mirrors backend getTeamIds logic, for dropdown filtering)
+function myTeamIds(){
+  if(U.role==="superadmin"||U.role==="admin") return null; // null = no restriction
+  var map={};
+  USERS.forEach(function(u){ if(u.reportsTo){ if(!map[u.reportsTo])map[u.reportsTo]=[]; map[u.reportsTo].push(u.id); } });
+  var result={}; result[U.id]=true;
+  var queue=[U.id];
+  while(queue.length){
+    var cur=queue.shift();
+    (map[cur]||[]).forEach(function(c){ if(!result[c]){ result[c]=true; queue.push(c); } });
+  }
+  return result; // {id: true, ...}
+}
 function fillAssignees(prefix){
   var dept=document.getElementById(prefix+"_dept").value;
   var sel=document.getElementById(prefix+"_asg");
   if(!dept){ sel.innerHTML="<option value=''>-- Select Dept first --</option>"; return; }
-  var members=USERS.filter(function(u){ return u.dept===dept; });
+  var team=myTeamIds();
+  var members=USERS.filter(function(u){ return u.dept===dept && (team===null || team[u.id]); });
   var opts="<option value=''>-- Select Member --</option>";
   members.forEach(function(u){
     opts+="<option value='"+u.id+"'>"+esc(u.name)+" ["+esc(u.id)+"]"+(u.id===U.id?" (You)":"")+"</option>";
   });
-  sel.innerHTML=opts||"<option value=''>No members in this dept</option>";
+  sel.innerHTML=opts||"<option value=''>No eligible members in this dept</option>";
 }
 
 // ── NAVIGATION
@@ -870,13 +892,14 @@ function timing(t){
                    : "<span class='pill' style='background:rgba(244,63,94,.15);color:#F43F5E'>Delayed</span>";
 }
 // Action button opens modal — NO inline onclick with dynamic IDs
-function actBtn(taskId, status){
+function actBtn(taskId, status, canUpdate){
   var closed=["done","not-done","hold"];
   if(closed.indexOf(status)>-1) return "<span style='font-size:11px;color:var(--mu)'>Completed</span>";
+  if(canUpdate===false) return "<span style='font-size:11px;color:var(--mu)'>View only</span>";
   return "<button class='btn btn-p btn-sm' onclick='openStatusModal(\""+taskId+"\")'>Update</button>";
 }
 function ini(n){ return (n||"?").split(" ").map(function(w){return w[0]||"";}).join("").toUpperCase().slice(0,2); }
-function avc(r){ return r==="admin"?"av-a":r==="manager"?"av-m":"av-u"; }
+function avc(r){ return r==="superadmin"?"av-a":r==="admin"?"av-a":r==="l1"?"av-m":r==="l2"?"av-m":"av-u"; }
 function cap(s){ return s?s.charAt(0).toUpperCase()+s.slice(1):s; }
 function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 function tryParse(s){ try{return JSON.parse(s);}catch(e){return null;} }
@@ -1006,7 +1029,7 @@ function renderMine(){
       +"<td style='font-size:11px;color:var(--mu)'>"+esc(t.dueDate||"")+"</td>"
       +"<td>"+spill(t.status)+"</td>"
       +"<td>"+timing(t)+"</td>"
-      +"<td>"+actBtn(t.id,t.status)+"</td>"
+      +"<td>"+actBtn(t.id,t.status,t.canUpdate)+"</td>"
       +"<td style='font-size:11px;color:var(--mu);max-width:120px'>"+esc(t.remarks||"")+"</td>"
       +"</tr>";
   }).join("");
@@ -1047,12 +1070,13 @@ function renderAll(){
       return t.status===fAll;
     });
     list = applyFilters(list,"tblAll");
-    var priv=isPriv();
     var h=list.map(function(t){
       var isDoneA=t.status==="done"||t.status==="not-done"||t.status==="hold";
       var rem="";
-      if(priv){
+      if(t.canRemove){
         rem="<button class='btn btn-d btn-sm' onclick='confirmRemove(\""+esc(t.id)+"\",\""+esc(t.title).replace(/"/g,"&quot;")+"\")'>Remove</button>";
+      } else {
+        rem="<span style='color:var(--mu);font-size:11px'>—</span>";
       }
       return "<tr>"
         +"<td style='width:36px'><input type='checkbox' class='tbl-chk' data-tbl='tblAll' data-tid='"+esc(t.id)+"' "+(isDoneA?"disabled":"")+"></td>"
@@ -1066,7 +1090,7 @@ function renderAll(){
         +"<td style='font-size:11px;color:var(--mu)'>"+esc(t.dueDate||"")+"</td>"
         +"<td>"+spill(t.status)+"</td>"
         +"<td>"+timing(t)+"</td>"
-        +"<td>"+actBtn(t.id,t.status)+"</td>"
+        +"<td>"+actBtn(t.id,t.status,t.canUpdate)+"</td>"
         +"<td style='font-size:11px;color:var(--mu);max-width:100px'>"+esc(t.remarks||"")+"</td>"
         +"<td>"+rem+"</td>"
         +"</tr>";
@@ -1097,16 +1121,15 @@ function renderTeam(){
     ALL_TABLE_DATA["tblTeam"] = (r.teamStats||[]).slice();
     var th=document.getElementById("teamHead");
     if(th){ th.innerHTML=buildFilterHeaders("tblTeam",teamHeaders); attachFilterListeners(th); }
-    var isAdmin=U&&U.role==="admin";
     var h=(r.teamStats||[]).map(function(u){
-      var remBtn=isAdmin&&u.id!==U.id
+      var remBtn=u.canRemove
         ? "<button class='btn btn-d btn-sm' onclick='confirmRemoveEmp(\""+esc(u.id)+"\",\""+esc(u.name).replace(/"/g,"&quot;")+"\")'>Remove</button>"
         : "<span style='color:var(--mu)'>—</span>";
       return "<tr>"
         +"<td><div style='display:flex;align-items:center;gap:9px'><div class='av "+avc(u.role)+"' style='width:32px;height:32px;font-size:11px'>"+ini(u.name)+"</div>"
         +"<div><div class='tn'>"+esc(u.name)+"</div><div class='tm'>"+esc(u.id)+" · "+esc(u.email)+"</div></div></div></td>"
         +"<td style='font-size:11px'>"+esc(u.dept||"")+"</td>"
-        +"<td><span class='pill p-"+u.role+"'>"+cap(u.role)+"</span></td>"
+        +"<td><span class='pill p-"+u.role+"'>"+(ROLE_LABEL[u.role]||cap(u.role))+"</span></td>"
         +"<td><b style='color:#fff'>"+u.total+"</b></td>"
         +"<td style='color:#34D399;font-weight:600'>"+u.done+"</td>"
         +"<td style='color:#818CF8;font-weight:600'>"+u.prog+"</td>"
@@ -1117,7 +1140,7 @@ function renderTeam(){
         +"</tr>";
     }).join("");
     document.getElementById("teamBody").innerHTML=h||"<tr><td colspan='10'><div class='empty'>No members</div></td></tr>";
-    var ab=document.getElementById("addMbrBtn"); if(ab) ab.style.display=isAdmin?"":"none";
+    var ab=document.getElementById("addMbrBtn"); if(ab) ab.style.display=(U.role==="superadmin"||U.role==="admin"||U.role==="l1")?"":"none";
   });
 }
 
@@ -1139,7 +1162,7 @@ function renderProfile(){
   document.getElementById("profName").textContent=U.name;
   document.getElementById("profEmail").textContent=U.email;
   document.getElementById("profMeta").textContent="Dept: "+(U.dept||"—")+" | Code: "+U.id;
-  document.getElementById("profRole").innerHTML="<span class='pill p-"+U.role+"'>"+cap(U.role)+"</span>";
+  document.getElementById("profRole").innerHTML="<span class='pill p-"+U.role+"'>"+(ROLE_LABEL[U.role]||cap(U.role))+"</span>";
   var myT=TASKS;
   document.getElementById("profStats").innerHTML=[
     {l:"Total",v:myT.length,c:"#818CF8"},
@@ -1210,6 +1233,7 @@ function oModal(id){
     DEPTS.forEach(function(d){opts+="<option value='"+esc(d)+"'>"+esc(d)+"</option>";});
     document.getElementById("m_dept").innerHTML=opts;
   }
+  if(id==="mUser"){ setupAddMemberModal(); }
   document.getElementById(id).classList.add("on");
 }
 function cModal(id){ document.getElementById(id).classList.remove("on"); }
@@ -1231,6 +1255,37 @@ function submitModal(){
 }
 
 // ── ADD USER
+function nuRoleChanged(){
+  populateReportsTo();
+}
+function populateReportsTo(){
+  var role=document.getElementById("nu_role").value;
+  var sel=document.getElementById("nu_reportsto");
+  var wrap=document.getElementById("nu_reportsto_wrap");
+  if(role==="superadmin"||role==="admin"||role==="l1"){
+    wrap.style.display="none"; sel.value=""; return;
+  }
+  wrap.style.display="";
+  var eligible;
+  if(role==="l2"){ eligible=USERS.filter(function(u){return u.role==="l1";}); }
+  else { eligible=USERS.filter(function(u){return u.role==="l2";}); } // l3 reports to an l2
+  var opts="<option value=''>-- None / Top Level --</option>";
+  eligible.forEach(function(u){ opts+="<option value='"+u.id+"'>"+esc(u.name)+" ["+esc(u.id)+"]</option>"; });
+  sel.innerHTML=opts;
+}
+function setupAddMemberModal(){
+  // Restrict the role dropdown based on who is opening it
+  var sel=document.getElementById("nu_role");
+  var allOpts=[
+    {v:"l3",l:"L3 - User"},{v:"l2",l:"L2 - Manager"},{v:"l1",l:"L1 - HOD"},
+    {v:"admin",l:"Admin"},{v:"superadmin",l:"Super Admin"}
+  ];
+  var allowed = U.role==="superadmin" ? allOpts
+    : U.role==="l1" ? allOpts.filter(function(o){return o.v==="l2"||o.v==="l3";})
+    : allOpts.filter(function(o){return o.v==="l3";}); // admin can only add L3
+  sel.innerHTML = allowed.map(function(o){return "<option value='"+o.v+"'>"+o.l+"</option>";}).join("");
+  populateReportsTo();
+}
 function submitUser(){
   var code=document.getElementById("nu_code").value.trim().toUpperCase();
   var name=document.getElementById("nu_name").value.trim();
@@ -1238,8 +1293,9 @@ function submitUser(){
   var email=document.getElementById("nu_email").value.trim();
   var pass=document.getElementById("nu_pass").value.trim();
   var role=document.getElementById("nu_role").value;
+  var reportsTo=document.getElementById("nu_reportsto")?document.getElementById("nu_reportsto").value:"";
   if(!code||!name||!dept||!email||!pass){toast("All fields are required.","err");return;}
-  api("addUser",{uid:U.id,code:code,name:name,dept:dept,email:email,pass:pass,role:role},"Adding...").then(function(r){
+  api("addUser",{uid:U.id,code:code,name:name,dept:dept,email:email,pass:pass,role:role,reportsTo:reportsTo},"Adding...").then(function(r){
     toast((r&&r.msg)||"Done", r&&r.ok?"ok":"err");
     if(r&&r.ok){
       cModal("mUser");
@@ -1277,7 +1333,8 @@ function bkFillAssignees(){
   var dept=document.getElementById("bk_dept").value;
   var sel=document.getElementById("bk_asg");
   if(!dept){ sel.innerHTML="<option value=''>-- Select Dept first --</option>"; return; }
-  var members=USERS.filter(function(u){ return u.dept===dept; });
+  var team=myTeamIds();
+  var members=USERS.filter(function(u){ return u.dept===dept && (team===null || team[u.id]); });
   var opts="<option value=''>-- Select Member --</option>";
   members.forEach(function(u){
     opts+="<option value='"+u.id+"'>"+esc(u.name)+" ["+esc(u.id)+"]</option>";
@@ -1455,7 +1512,7 @@ function renderEmpCards(members){
       +"<div class='emp-name'>"+esc(u.name)+"</div>"
       +"<div class='emp-id'>"+esc(u.id)+"</div>"
       +"<div class='emp-dept'>"+esc(u.dept||"—")+"</div>"
-      +"<div class='emp-role'><span class='pill p-"+u.role+"'>"+cap(u.role)+"</span></div>"
+      +"<div class='emp-role'><span class='pill p-"+u.role+"'>"+(ROLE_LABEL[u.role]||cap(u.role))+"</span></div>"
       +"<div class='emp-stats'>"
         +"<div class='emp-stat'><span class='emp-stat-v' style='color:#16A34A'>"+u.done+"</span><span class='emp-stat-l'>Done</span></div>"
         +"<div class='emp-stat'><span class='emp-stat-v' style='color:#6366F1'>"+u.prog+"</span><span class='emp-stat-l'>Active</span></div>"

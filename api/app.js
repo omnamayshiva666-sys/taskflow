@@ -1,9 +1,26 @@
 // ================================================================
 // /api/app.js
-// One serverless endpoint that replaces the whole Google Apps Script
-// backend (Code.gs). The frontend posts { fn, params } here — same
-// shape as the old google.script.run calls — and gets back the same
-// { ok, ... } shaped responses, so index.html barely had to change.
+// Backend for the Task Management System.
+//
+// ROLE SYSTEM (5 levels):
+//   superadmin -- full control over everything. ONLY superadmin can
+//                 assign/change someone's L1/L2/L3 level (or promote
+//                 to admin/superadmin).
+//   admin      -- can ADD members and tasks. Can NEVER remove/delete
+//                 anything (no employee removal, no task removal),
+//                 no matter whose data it is.
+//   l1 (HOD)   -- sees + updates ALL data of their team: themselves,
+//                 every L2 who reports to them, and every L3 who
+//                 reports to those L2s. Can also remove tasks/members
+//                 within their own team.
+//   l2 (manager) -- sees their L3 reports' data (read-only -- cannot
+//                 update an L3's task status). Can update only their
+//                 own tasks. Cannot remove anything.
+//   l3 (user)  -- sees + updates only their own tasks. Cannot remove
+//                 anything.
+//
+// Hierarchy is stored via users.reports_to (the id of the person one
+// level above). L1s normally have reports_to = null.
 // ================================================================
 import { supabase } from '../lib/supabaseClient.js';
 import { sendEmail } from '../lib/email.js';
@@ -31,12 +48,82 @@ export default async function handler(req, res) {
   }
 }
 
-// ---------------- shared helpers ----------------
+// ---------------- role helpers ----------------
+
+const ROLE_LABEL = { superadmin: 'Super Admin', admin: 'Admin', l1: 'L1 (HOD)', l2: 'L2 (Manager)', l3: 'L3 (User)' };
+
+function canSeeEverything(role) {
+  return role === 'superadmin' || role === 'admin';
+}
+function canRemoveAnything(role) {
+  return role === 'superadmin';
+}
+function canManageTeam(role) {
+  // who can add members / assign tasks to others
+  return role === 'superadmin' || role === 'admin' || role === 'l1' || role === 'l2';
+}
+
+// Build a map of userId -> [direct reports] from the full user list.
+function buildReportsMap(users) {
+  const map = {};
+  users.forEach(u => {
+    const sup = u.reports_to;
+    if (!sup) return;
+    if (!map[sup]) map[sup] = [];
+    map[sup].push(u.id);
+  });
+  return map;
+}
+
+// Returns: self + every descendant (direct and indirect reports) of rootId.
+function getTeamIds(users, rootId) {
+  const map = buildReportsMap(users);
+  const result = new Set([rootId]);
+  const queue = [rootId];
+  while (queue.length) {
+    const cur = queue.shift();
+    (map[cur] || []).forEach(child => {
+      if (!result.has(child)) { result.add(child); queue.push(child); }
+    });
+  }
+  return Array.from(result);
+}
+
+// Given the caller and the full user list, returns the set of user ids
+// whose TASKS the caller is allowed to see.
+function visibleAssigneeIds(caller, users) {
+  if (canSeeEverything(caller.role)) return null; // null = no restriction, see all
+  if (caller.role === 'l1') return getTeamIds(users, caller.id);
+  if (caller.role === 'l2') return getTeamIds(users, caller.id); // self + their l3 reports
+  return [caller.id]; // l3: only self
+}
+
+// Whether `caller` is allowed to UPDATE (mark status of) a task assigned to `assigneeId`.
+function canUpdateTaskOf(caller, assigneeId, users) {
+  if (caller.role === 'superadmin' || caller.role === 'admin') return true;
+  if (caller.role === 'l1') return getTeamIds(users, caller.id).includes(assigneeId);
+  // l2 and l3 can only update their OWN tasks, never a subordinate's
+  return assigneeId === caller.id;
+}
+
+// Whether `caller` is allowed to REMOVE/DELETE a task assigned to `assigneeId`.
+function canRemoveTaskOf(caller, assigneeId, users) {
+  if (caller.role === 'superadmin') return true;
+  if (caller.role === 'l1') return getTeamIds(users, caller.id).includes(assigneeId);
+  return false; // admin, l2, l3 can never remove tasks
+}
+
+// Whether `caller` can add a task FOR `assigneeId` (assign to them).
+function canAssignTaskTo(caller, assigneeId, users) {
+  if (caller.role === 'superadmin' || caller.role === 'admin') return true;
+  if (caller.role === 'l1') return getTeamIds(users, caller.id).includes(assigneeId);
+  if (caller.role === 'l2') return getTeamIds(users, caller.id).includes(assigneeId); // self or their l3s
+  return false; // l3 cannot assign tasks to anyone
+}
 
 function freqLabel(f) {
   return { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly', ott: 'One-Time' }[f] || f;
 }
-
 function fmtTime(d) {
   try {
     return new Date(d).toLocaleString('en-IN', {
@@ -45,8 +132,6 @@ function fmtTime(d) {
   } catch (e) { return String(d || ''); }
 }
 
-// DB rows are snake_case; the frontend expects the same camelCase
-// field names the old Apps Script code used. These mappers bridge that.
 function taskOut(t) {
   return {
     id: t.id, title: t.title, description: t.description || '', frequency: t.frequency,
@@ -58,7 +143,7 @@ function taskOut(t) {
   };
 }
 function userOut(u) {
-  return { id: u.id, name: u.name, email: u.email, role: u.role, dept: u.department };
+  return { id: u.id, name: u.name, email: u.email, role: u.role, roleLabel: ROLE_LABEL[u.role] || u.role, dept: u.department, reportsTo: u.reports_to || '' };
 }
 
 async function getCaller(uid) {
@@ -67,16 +152,18 @@ async function getCaller(uid) {
   if (error || !data) throw new Error('Session expired. Please sign in again.');
   return data;
 }
+async function getAllUsers() {
+  const { data } = await supabase.from('users').select('*');
+  return data || [];
+}
 
 async function logActivity(empCode, name, action, taskId, title) {
   try {
-    await supabase.from('activity_log').insert({
-      emp_code: empCode, name, action, task_id: taskId || '', title: title || ''
-    });
-  } catch (e) { /* logging failures should never break the request */ }
+    await supabase.from('activity_log').insert({ emp_code: empCode, name, action, task_id: taskId || '', title: title || '' });
+  } catch (e) { /* never break the request over a logging failure */ }
 }
 
-// ---------------- handlers (1:1 with the old Code.gs functions) ----------------
+// ---------------- handlers ----------------
 
 const handlers = {
 
@@ -108,35 +195,61 @@ const handlers = {
 
   async addUser(p) {
     const caller = await getCaller(p.uid);
-    if (caller.role !== 'admin') return { ok: false, msg: 'Only admin can add users.' };
+    if (!canManageTeam(caller.role) && caller.role !== 'l1') return { ok: false, msg: 'You do not have permission to add members.' };
+    if (caller.role === 'l2' || caller.role === 'l3') return { ok: false, msg: 'You do not have permission to add members.' };
+
     const code = String(p.code || '').trim();
     const name = String(p.name || '').trim();
     const dept = String(p.dept || '').trim();
     const email = String(p.email || '').toLowerCase().trim();
     const pass = String(p.pass || '').trim();
-    const role = String(p.role || 'user');
+    let role = String(p.role || 'l3').trim();
+    let reportsTo = String(p.reportsTo || '').trim() || null;
+
     if (!code || !name || !dept || !email || !pass) return { ok: false, msg: 'All fields required.' };
+
+    // Only superadmin may grant superadmin/admin/l1, or pick an arbitrary level.
+    // admin and l1 can only create L2/L3 members under themselves.
+    if (caller.role !== 'superadmin') {
+      if (['superadmin', 'admin', 'l1'].includes(role)) {
+        return { ok: false, msg: 'Only Super Admin can assign that role/level.' };
+      }
+      if (caller.role === 'l1') {
+        // l1 adding members: must be l2 or l3 within their own team
+        if (!['l2', 'l3'].includes(role)) role = 'l3';
+        if (!reportsTo) reportsTo = caller.id;
+      }
+      if (caller.role === 'admin') {
+        // admin can only create l3 (basic) members
+        role = 'l3';
+      }
+    }
 
     const { data: existId } = await supabase.from('users').select('id').eq('id', code).maybeSingle();
     if (existId) return { ok: false, msg: 'Employee code already exists.' };
     const { data: existEmail } = await supabase.from('users').select('id').ilike('email', email).maybeSingle();
     if (existEmail) return { ok: false, msg: 'Email already registered.' };
 
-    const { error } = await supabase.from('users').insert({ id: code, department: dept, name, email, password: pass, role });
+    const { error } = await supabase.from('users').insert({
+      id: code, department: dept, name, email, password: pass, role, reports_to: reportsTo
+    });
     if (error) return { ok: false, msg: error.message };
 
-    sendEmail(email, '[Task Management] Account Ready', welcomeHtml(name, code, email, pass, role, dept));
-    return { ok: true, msg: name + ' added successfully.' };
+    sendEmail(email, '[Task Management] Account Ready', welcomeHtml(name, code, email, pass, ROLE_LABEL[role] || role, dept));
+    return { ok: true, msg: name + ' added successfully as ' + (ROLE_LABEL[role] || role) + '.' };
   },
 
   async removeEmployee(p) {
     const caller = await getCaller(p.uid);
-    if (caller.role !== 'admin') return { ok: false, msg: 'Only admin can remove employees.' };
     const empId = String(p.empId || '').trim();
     if (empId === caller.id) return { ok: false, msg: 'You cannot remove yourself.' };
 
+    const users = await getAllUsers();
     const { data: emp } = await supabase.from('users').select('*').eq('id', empId).maybeSingle();
     if (!emp) return { ok: false, msg: 'Employee not found.' };
+
+    const allowed = caller.role === 'superadmin' || (caller.role === 'l1' && getTeamIds(users, caller.id).includes(empId));
+    if (!allowed) return { ok: false, msg: 'You do not have permission to remove this employee.' };
 
     await supabase.from('tasks').update({ active: false }).eq('assignee_id', empId);
     const { error } = await supabase.from('users').delete().eq('id', empId);
@@ -148,19 +261,29 @@ const handlers = {
 
   async getTasks(p) {
     const caller = await getCaller(p.uid);
+    const users = await getAllUsers();
+    const visible = visibleAssigneeIds(caller, users); // null = everyone
+
     let q = supabase.from('tasks').select('*').neq('active', false);
-    if (caller.role === 'user') q = q.eq('assignee_id', caller.id);
-    else if (caller.role === 'manager') q = q.ilike('department', caller.department || '');
+    if (visible) q = q.in('assignee_id', visible);
     if (p.freq && p.freq !== 'all') q = q.eq('frequency', p.freq);
     if (p.status && p.status !== 'all') q = q.eq('status', p.status);
     const { data, error } = await q.order('created_at', { ascending: true });
     if (error) return { ok: false, msg: error.message };
-    return { ok: true, tasks: (data || []).map(taskOut) };
+
+    const out = (data || []).map(t => {
+      const o = taskOut(t);
+      o.canUpdate = canUpdateTaskOf(caller, t.assignee_id, users);
+      o.canRemove = canRemoveTaskOf(caller, t.assignee_id, users);
+      return o;
+    });
+    return { ok: true, tasks: out };
   },
 
   async addTask(p) {
     const caller = await getCaller(p.uid);
-    if (caller.role === 'user') return { ok: false, msg: 'Only admin or manager can assign tasks.' };
+    if (caller.role === 'l3') return { ok: false, msg: 'You do not have permission to assign tasks.' };
+
     const title = String(p.title || '').trim();
     const freq = String(p.freq || '').trim();
     const aId = String(p.assigneeId || '').trim();
@@ -169,6 +292,9 @@ const handlers = {
     const due = String(p.dueDate || '').trim();
     if (!title || !freq || !aId || !dept || !start || !due) return { ok: false, msg: 'All fields required.' };
     if (start > due) return { ok: false, msg: 'Start date cannot be after due date.' };
+
+    const users = await getAllUsers();
+    if (!canAssignTaskTo(caller, aId, users)) return { ok: false, msg: 'You can only assign tasks within your own team.' };
 
     const { data: assignee } = await supabase.from('users').select('*').eq('id', aId).maybeSingle();
     if (!assignee) return { ok: false, msg: 'Assignee not found.' };
@@ -205,7 +331,9 @@ const handlers = {
 
     const { data: t } = await supabase.from('tasks').select('*').eq('id', taskId).maybeSingle();
     if (!t) return { ok: false, msg: 'Task not found.' };
-    if (caller.role === 'user' && t.assignee_id !== caller.id) return { ok: false, msg: 'You can only update your own tasks.' };
+
+    const users = await getAllUsers();
+    if (!canUpdateTaskOf(caller, t.assignee_id, users)) return { ok: false, msg: 'You do not have permission to update this task.' };
 
     const update = { status, remarks };
     if (status === 'done' || status === 'not-done') update.completed_at = new Date().toISOString();
@@ -219,12 +347,16 @@ const handlers = {
 
   async removeTask(p) {
     const caller = await getCaller(p.uid);
-    if (caller.role === 'user') return { ok: false, msg: 'Only admin or manager can remove tasks.' };
     const taskId = String(p.taskId || '').trim();
     const stopAll = p.stopAll === true;
 
     const { data: t } = await supabase.from('tasks').select('*').eq('id', taskId).maybeSingle();
     if (!t) return { ok: false, msg: 'Task not found.' };
+
+    const users = await getAllUsers();
+    if (!canRemoveTaskOf(caller, t.assignee_id, users)) {
+      return { ok: false, msg: 'You do not have permission to remove tasks. (Admin can add tasks but not remove them; L2/L3 can only update their own tasks.)' };
+    }
 
     if (stopAll && t.recurring_group_id) {
       const { data: group } = await supabase.from('tasks').select('id, status').eq('recurring_group_id', t.recurring_group_id);
@@ -242,17 +374,11 @@ const handlers = {
 
   async getDashboard(p) {
     const caller = await getCaller(p.uid);
-    const callerDept = (caller.department || '').toLowerCase();
+    const allTasks = (await supabase.from('tasks').select('*').neq('active', false)).data || [];
+    const allUsers = await getAllUsers();
 
-    const { data: allTasks } = await supabase.from('tasks').select('*').neq('active', false);
-    const { data: allUsers } = await supabase.from('users').select('*');
-    const tasks = allTasks || [];
-    const users = allUsers || [];
-
-    let scope;
-    if (caller.role === 'user') scope = tasks.filter(t => t.assignee_id === caller.id);
-    else if (caller.role === 'manager') scope = tasks.filter(t => (t.department || '').toLowerCase() === callerDept);
-    else scope = tasks;
+    const visible = visibleAssigneeIds(caller, allUsers);
+    const scope = visible ? allTasks.filter(t => visible.includes(t.assignee_id)) : allTasks;
 
     const total = scope.length;
     const done = scope.filter(t => t.status === 'done').length;
@@ -276,27 +402,31 @@ const handlers = {
       freqStats[f] = { total: ft.length, done: ft.filter(t => t.status === 'done').length };
     });
 
+    // Team stats: who shows up in the "Team Stats" table
     let teamStats = [];
-    if (caller.role !== 'user') {
-      const showUsers = caller.role === 'manager'
-        ? users.filter(u => (u.department || '').toLowerCase() === callerDept)
-        : users;
-      teamStats = showUsers.map(u => {
-        const ut = tasks.filter(t => t.assignee_id === u.id);
-        return {
-          id: u.id, name: u.name, email: u.email, role: u.role, dept: u.department,
-          total: ut.length,
-          done: ut.filter(t => t.status === 'done').length,
-          prog: ut.filter(t => t.status === 'in-progress').length,
-          pending: ut.filter(t => t.status === 'pending').length,
-          notDone: ut.filter(t => t.status === 'not-done').length,
-          hold: ut.filter(t => t.status === 'hold').length
-        };
-      });
-    }
+    if (canSeeEverything(caller.role)) {
+      teamStats = allUsers;
+    } else if (caller.role === 'l1' || caller.role === 'l2') {
+      const ids = getTeamIds(allUsers, caller.id);
+      teamStats = allUsers.filter(u => ids.includes(u.id));
+    } // l3 sees no team table (handled in frontend by hiding the nav item)
 
-    const recent = tasks.slice(-5).reverse().map(taskOut);
-    const myPending = tasks
+    teamStats = teamStats.map(u => {
+      const ut = allTasks.filter(t => t.assignee_id === u.id);
+      return {
+        id: u.id, name: u.name, email: u.email, role: u.role, roleLabel: ROLE_LABEL[u.role] || u.role, dept: u.department,
+        total: ut.length,
+        done: ut.filter(t => t.status === 'done').length,
+        prog: ut.filter(t => t.status === 'in-progress').length,
+        pending: ut.filter(t => t.status === 'pending').length,
+        notDone: ut.filter(t => t.status === 'not-done').length,
+        hold: ut.filter(t => t.status === 'hold').length,
+        canRemove: caller.role === 'superadmin' || (caller.role === 'l1' && u.id !== caller.id && getTeamIds(allUsers, caller.id).includes(u.id))
+      };
+    });
+
+    const recent = scope.slice(-5).reverse().map(taskOut);
+    const myPending = allTasks
       .filter(t => t.assignee_id === caller.id && (t.status === 'pending' || t.status === 'in-progress'))
       .slice(0, 8).map(taskOut);
 
@@ -305,7 +435,7 @@ const handlers = {
 
   async bulkAddTasks(p) {
     const caller = await getCaller(p.uid);
-    if (caller.role !== 'admin' && caller.role !== 'manager') return { ok: false, msg: 'Only admin or manager can assign tasks.' };
+    if (caller.role === 'l3') return { ok: false, msg: 'You do not have permission to assign tasks.' };
 
     const tasksIn = p.tasks || [];
     const freq = String(p.freq || '').trim();
@@ -313,6 +443,9 @@ const handlers = {
     const assignId = String(p.assigneeId || '').trim();
     const priority = String(p.priority || 'medium');
     if (!tasksIn.length || !freq || !dept || !assignId) return { ok: false, msg: 'Missing required fields.' };
+
+    const users = await getAllUsers();
+    if (!canAssignTaskTo(caller, assignId, users)) return { ok: false, msg: 'You can only assign tasks within your own team.' };
 
     const { data: assignee } = await supabase.from('users').select('*').eq('id', assignId).maybeSingle();
     if (!assignee) return { ok: false, msg: 'Assignee not found.' };
@@ -359,9 +492,9 @@ const handlers = {
     const valid = ['pending', 'in-progress', 'done', 'not-done', 'hold'];
     if (valid.indexOf(status) < 0) return { ok: false, msg: 'Invalid status.' };
 
+    const users = await getAllUsers();
     const { data: rows } = await supabase.from('tasks').select('id, assignee_id, title').in('id', taskIds);
-    let allowedIds = (rows || []).map(r => r.id);
-    if (caller.role === 'user') allowedIds = (rows || []).filter(r => r.assignee_id === caller.id).map(r => r.id);
+    const allowedIds = (rows || []).filter(r => canUpdateTaskOf(caller, r.assignee_id, users)).map(r => r.id);
     if (!allowedIds.length) return { ok: true, msg: '0 task(s) updated.', updated: 0 };
 
     const update = { status, remarks };
@@ -417,16 +550,16 @@ const handlers = {
     const idx = parseInt(p.noticeIdx, 10);
     if (isNaN(idx) || !list || idx < 0 || idx >= list.length) return { ok: false, msg: 'Invalid notice index.' };
     const n = list[idx];
-    if (caller.role !== 'admin' && n.by_id !== caller.id) return { ok: false, msg: 'You can only delete your own notices.' };
+    if (caller.role !== 'superadmin' && n.by_id !== caller.id) return { ok: false, msg: 'You can only delete your own notices.' };
     const { error } = await supabase.from('notices').delete().eq('id', n.id);
     if (error) return { ok: false, msg: error.message };
     return { ok: true, msg: 'Notice deleted.' };
   }
 };
 
-// ---------------- email templates (trimmed versions of the Apps Script originals) ----------------
+// ---------------- email templates ----------------
 
-function welcomeHtml(name, code, email, pass, role, dept) {
+function welcomeHtml(name, code, email, pass, roleLabel, dept) {
   return `<div style="font-family:Arial;max-width:460px;margin:0 auto">
     <div style="background:#0F172A;padding:16px 20px"><div style="font-size:15px;font-weight:700;color:#fff">Task Management System</div></div>
     <div style="padding:20px;background:#fff">
@@ -435,8 +568,7 @@ function welcomeHtml(name, code, email, pass, role, dept) {
         <p style="margin:0 0 7px;font-size:13px"><strong>Employee Code:</strong> ${code}</p>
         <p style="margin:0 0 7px;font-size:13px"><strong>Email:</strong> ${email}</p>
         <p style="margin:0 0 7px;font-size:13px"><strong>Password:</strong> ${pass}</p>
-        <p style="margin:0 0 7px;font-size:13px"><strong>Role:</strong> ${role}</p>
-        <p style="margin:0;font-size:13px"><strong>Department:</strong> ${dept}</p>
+        <p style="margin:0;font-size:13px"><strong>Access Level:</strong> ${roleLabel} / ${dept}</p>
       </div>
       <p style="font-size:12px;color:#94a3b8">Please change your password after first login.</p>
     </div></div>`;
