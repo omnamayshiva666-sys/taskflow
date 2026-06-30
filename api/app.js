@@ -89,6 +89,31 @@ function getTeamIds(users, rootId) {
   return Array.from(result);
 }
 
+// Returns: self + everyone ABOVE rootId in the reports_to chain (their boss,
+// their boss's boss, etc). Used so a message from an L3 can still reach
+// their L2/L1 superiors, not just flow downward.
+function getAncestorIds(users, rootId) {
+  const byId = {};
+  users.forEach(u => { byId[u.id] = u; });
+  const result = [rootId];
+  let cur = byId[rootId];
+  while (cur && cur.reports_to && byId[cur.reports_to] && result.indexOf(cur.reports_to) < 0) {
+    result.push(cur.reports_to);
+    cur = byId[cur.reports_to];
+  }
+  return result;
+}
+
+// "Vertical team" for notices: self + everyone below (their team) +
+// everyone above (their chain of superiors). This is what makes an L1's
+// notice reach their whole team, and an L3's notice still reach their
+// manager/HOD above them.
+function getNoticeAudience(users, rootId) {
+  const down = getTeamIds(users, rootId);
+  const up = getAncestorIds(users, rootId);
+  return Array.from(new Set([...down, ...up]));
+}
+
 // Given the caller and the full user list, returns the set of user ids
 // whose TASKS the caller is allowed to see.
 function visibleAssigneeIds(caller, users) {
@@ -510,14 +535,25 @@ const handlers = {
   },
 
   async getNotices(p) {
-    await getCaller(p.uid);
+    const caller = await getCaller(p.uid);
+    const users = await getAllUsers();
     const { data, error } = await supabase.from('notices').select('*').order('created_at', { ascending: true });
     if (error) return { ok: false, msg: error.message };
+
+    const seeAll = canSeeEverything(caller.role); // superadmin/admin see every notice
+    const visible = (data || []).filter(n => {
+      if (seeAll) return true;
+      if (n.by_id === caller.id) return true;
+      const aud = n.audience || [];
+      return aud.includes(caller.id);
+    });
+
     return {
       ok: true,
-      notices: (data || []).map(n => ({
+      notices: visible.map(n => ({
         id: n.id, byId: n.by_id, byName: n.by_name, byRole: n.by_role,
-        msg: n.msg, meetLink: n.meet_link || '', time: fmtTime(n.created_at)
+        msg: n.msg, meetLink: n.meet_link || '', time: fmtTime(n.created_at),
+        canDelete: caller.role === 'superadmin' || caller.role === 'admin'
       }))
     };
   },
@@ -528,32 +564,173 @@ const handlers = {
     const meetLink = String(p.meetLink || '').trim();
     if (!msg) return { ok: false, msg: 'Message cannot be empty.' };
 
+    const users = await getAllUsers();
+    // A notice reaches the sender's "vertical team": everyone below them
+    // (their reports) and everyone above them (their managers/HOD), so an
+    // L1 reaches their whole team and an L3's message still reaches their
+    // manager chain. Super Admin/Admin can always see every notice anyway.
+    const audience = getNoticeAudience(users, caller.id);
+
     const nid = 'N' + Date.now();
     const { error } = await supabase.from('notices').insert({
-      id: nid, by_id: caller.id, by_name: caller.name, by_role: caller.role, msg, meet_link: meetLink
+      id: nid, by_id: caller.id, by_name: caller.name, by_role: caller.role, msg, meet_link: meetLink, audience
     });
     if (error) return { ok: false, msg: error.message };
 
-    if (meetLink) {
-      const { data: users } = await supabase.from('users').select('*');
-      (users || []).forEach(u => {
-        if (u.id === caller.id) return;
-        sendEmail(u.email, `[Task Management] ${caller.name} shared a meeting link`, meetHtml(caller.name, msg, meetLink));
-      });
-    }
-    return { ok: true, msg: 'Announcement posted.' + (meetLink ? ' Meeting link shared with team!' : '') };
+    return { ok: true, msg: 'Announcement posted to your team.' };
   },
 
   async deleteNotice(p) {
     const caller = await getCaller(p.uid);
-    const { data: list } = await supabase.from('notices').select('*').order('created_at', { ascending: true });
-    const idx = parseInt(p.noticeIdx, 10);
-    if (isNaN(idx) || !list || idx < 0 || idx >= list.length) return { ok: false, msg: 'Invalid notice index.' };
-    const n = list[idx];
-    if (caller.role !== 'superadmin' && n.by_id !== caller.id) return { ok: false, msg: 'You can only delete your own notices.' };
-    const { error } = await supabase.from('notices').delete().eq('id', n.id);
+    if (caller.role !== 'superadmin' && caller.role !== 'admin') {
+      return { ok: false, msg: 'Only Admin or Super Admin can delete notices.' };
+    }
+    const noticeId = String(p.noticeId || '').trim();
+    if (!noticeId) return { ok: false, msg: 'Invalid notice.' };
+    const { error } = await supabase.from('notices').delete().eq('id', noticeId);
     if (error) return { ok: false, msg: error.message };
     return { ok: true, msg: 'Notice deleted.' };
+  },
+
+  // ---------------- MEETINGS ----------------
+
+  async createMeeting(p) {
+    const caller = await getCaller(p.uid);
+    const title = String(p.title || '').trim();
+    const date = String(p.date || '').trim();
+    const time = String(p.time || '').trim();
+    let participants = Array.isArray(p.participantIds) ? p.participantIds.map(String) : [];
+    if (!title || !date) return { ok: false, msg: 'Meeting title and date are required.' };
+    if (!participants.length) return { ok: false, msg: 'Select at least one participant.' };
+    if (!participants.includes(caller.id)) participants.push(caller.id);
+
+    const users = await getAllUsers();
+    const byId = {}; users.forEach(u => { byId[u.id] = u; });
+    participants = participants.filter(id => byId[id]); // drop unknown ids
+
+    const mid = 'M' + Date.now();
+    const meetLink = 'https://meet.google.com/new';
+    const { error } = await supabase.from('meetings').insert({
+      id: mid, title, meeting_date: date, meeting_time: time,
+      created_by: caller.id, created_by_name: caller.name,
+      participants, meet_link: meetLink
+    });
+    if (error) return { ok: false, msg: error.message };
+
+    // Auto-post a notice visible ONLY to the invited participants, so it
+    // shows up in Notices with just the meeting link (per your request).
+    const dateLabel = time ? `${date} at ${time}` : date;
+    const nid = 'N' + Date.now();
+    await supabase.from('notices').insert({
+      id: nid, by_id: caller.id, by_name: caller.name, by_role: caller.role,
+      msg: `📅 Meeting scheduled: "${title}" on ${dateLabel}`,
+      meet_link: meetLink, audience: participants
+    });
+
+    participants.filter(id => id !== caller.id).forEach(id => {
+      const u = byId[id];
+      if (u) sendEmail(u.email, `[Task Management] Meeting scheduled: ${title}`, meetingHtml(caller.name, title, dateLabel, meetLink));
+    });
+
+    return { ok: true, msg: 'Meeting scheduled with ' + participants.length + ' participant(s).' };
+  },
+
+  async getMeetings(p) {
+    const caller = await getCaller(p.uid);
+    const { data, error } = await supabase.from('meetings').select('*').order('meeting_date', { ascending: true });
+    if (error) return { ok: false, msg: error.message };
+    const seeAll = canSeeEverything(caller.role);
+    const list = (data || []).filter(m => seeAll || (m.participants || []).includes(caller.id));
+    return {
+      ok: true,
+      meetings: list.map(m => ({
+        id: m.id, title: m.title, date: m.meeting_date, time: m.meeting_time || '',
+        createdBy: m.created_by, createdByName: m.created_by_name,
+        participants: m.participants || [], meetLink: m.meet_link,
+        canCancel: caller.role === 'superadmin' || caller.role === 'admin' || m.created_by === caller.id
+      }))
+    };
+  },
+
+  async cancelMeeting(p) {
+    const caller = await getCaller(p.uid);
+    const meetingId = String(p.meetingId || '').trim();
+    const { data: m } = await supabase.from('meetings').select('*').eq('id', meetingId).maybeSingle();
+    if (!m) return { ok: false, msg: 'Meeting not found.' };
+    const allowed = caller.role === 'superadmin' || caller.role === 'admin' || m.created_by === caller.id;
+    if (!allowed) return { ok: false, msg: 'You cannot cancel this meeting.' };
+    const { error } = await supabase.from('meetings').delete().eq('id', meetingId);
+    if (error) return { ok: false, msg: error.message };
+    return { ok: true, msg: 'Meeting cancelled.' };
+  },
+
+  // ---------------- CHAT / DIRECT MESSAGES ----------------
+  // Open to everyone -- any user can message any other user, regardless
+  // of team/role. Messages can never be deleted by anyone.
+
+  async listConversations(p) {
+    const caller = await getCaller(p.uid);
+    const { data, error } = await supabase
+      .from('messages').select('*')
+      .or(`from_id.eq.${caller.id},to_id.eq.${caller.id}`)
+      .order('created_at', { ascending: false });
+    if (error) return { ok: false, msg: error.message };
+
+    const byPartner = {};
+    (data || []).forEach(m => {
+      const partnerId = m.from_id === caller.id ? m.to_id : m.from_id;
+      const partnerName = m.from_id === caller.id ? m.to_name : m.from_name;
+      if (!byPartner[partnerId]) {
+        byPartner[partnerId] = {
+          userId: partnerId, name: partnerName, lastMsg: m.body,
+          lastTime: m.created_at, unread: 0
+        };
+      }
+      if (m.to_id === caller.id && !m.read_at) byPartner[partnerId].unread++;
+    });
+    const list = Object.values(byPartner).sort((a, b) => new Date(b.lastTime) - new Date(a.lastTime));
+    return { ok: true, conversations: list };
+  },
+
+  async getConversation(p) {
+    const caller = await getCaller(p.uid);
+    const withId = String(p.withId || '').trim();
+    if (!withId) return { ok: false, msg: 'Missing user.' };
+
+    const { data, error } = await supabase
+      .from('messages').select('*')
+      .or(`and(from_id.eq.${caller.id},to_id.eq.${withId}),and(from_id.eq.${withId},to_id.eq.${caller.id})`)
+      .order('created_at', { ascending: true });
+    if (error) return { ok: false, msg: error.message };
+
+    // mark incoming messages as read
+    const unreadIds = (data || []).filter(m => m.to_id === caller.id && !m.read_at).map(m => m.id);
+    if (unreadIds.length) await supabase.from('messages').update({ read_at: new Date().toISOString() }).in('id', unreadIds);
+
+    return {
+      ok: true,
+      messages: (data || []).map(m => ({
+        id: m.id, fromId: m.from_id, fromName: m.from_name, toId: m.to_id,
+        body: m.body, time: m.created_at, mine: m.from_id === caller.id
+      }))
+    };
+  },
+
+  async sendMessage(p) {
+    const caller = await getCaller(p.uid);
+    const toId = String(p.toId || '').trim();
+    const body = String(p.body || '').trim();
+    if (!toId || !body) return { ok: false, msg: 'Message cannot be empty.' };
+    if (toId === caller.id) return { ok: false, msg: 'You cannot message yourself.' };
+
+    const { data: target } = await supabase.from('users').select('*').eq('id', toId).maybeSingle();
+    if (!target) return { ok: false, msg: 'Recipient not found.' };
+
+    const { error } = await supabase.from('messages').insert({
+      from_id: caller.id, from_name: caller.name, to_id: toId, to_name: target.name, body
+    });
+    if (error) return { ok: false, msg: error.message };
+    return { ok: true, msg: 'sent' };
   }
 };
 
@@ -598,12 +775,12 @@ function bulkHtml(name, count, dept, freq, by) {
     </div></div>`;
 }
 
-function meetHtml(by, msg, link) {
+function meetingHtml(by, title, dateLabel, link) {
   return `<div style="font-family:Arial;max-width:500px;margin:0 auto">
-    <div style="background:#1E1B4B;padding:16px 20px;border-radius:10px 10px 0 0"><div style="font-size:15px;font-weight:700;color:#fff">Meeting Invitation</div></div>
+    <div style="background:#1E1B4B;padding:16px 20px;border-radius:10px 10px 0 0"><div style="font-size:15px;font-weight:700;color:#fff">Meeting Scheduled</div></div>
     <div style="padding:20px;background:#fff;border-radius:0 0 10px 10px;border:1px solid #E2E8F0">
-      <p><strong>${by}</strong> has invited you to a meeting.</p>
-      <p style="margin:10px 0;padding:12px;background:#F8FAFF;border-radius:8px;border-left:3px solid #6366F1">${msg}</p>
+      <p><strong>${by}</strong> scheduled a meeting with you.</p>
+      <p style="margin:10px 0;padding:12px;background:#F8FAFF;border-radius:8px;border-left:3px solid #6366F1"><strong>${title}</strong><br>${dateLabel}</p>
       <a href="${link}" style="display:inline-block;background:#10B981;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:10px">📹 Join Meeting</a>
     </div></div>`;
 }
