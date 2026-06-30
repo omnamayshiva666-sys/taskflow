@@ -442,6 +442,7 @@ th{position:relative}
             </div>
             <div class="fg">
               <label class="fl">Participants * <span style="font-weight:400;text-transform:none;color:var(--mu)">(team or anyone else)</span></label>
+              <button class="btn btn-meet btn-sm" onclick="mtSelectMyTeam()" style="margin-bottom:8px;width:100%;justify-content:center">👥 Select My Whole Team</button>
               <input class="fi" id="mt_search" placeholder="🔍 Search people..." style="margin-bottom:8px" oninput="renderPplBox(this.value)">
               <div class="ppl-box" id="mt_ppl"></div>
             </div>
@@ -657,6 +658,23 @@ th{position:relative}
   <div class="fg"><label class="fl">Email *</label><input class="fi" id="nu_email" type="email" placeholder="user@company.com"></div>
   <div class="fg"><label class="fl">Password *</label><input class="fi" id="nu_pass" type="password" placeholder="Min 4 characters"></div>
   <div style="display:flex;gap:8px"><button class="btn btn-p" onclick="submitUser()">Add Member</button><button class="btn btn-g" onclick="cModal('mUser')">Cancel</button></div>
+</div></div>
+
+<div class="mbg" id="mNewChat"><div class="modal" style="max-width:460px">
+  <div class="mh"><h2>Start a Chat</h2><button class="mclose" onclick="cModal('mNewChat')">✕</button></div>
+  <div class="fr">
+    <div class="fg"><label class="fl">Filter by Department</label><select class="fi" id="nc_dept" onchange="ncDeptChanged()"><option value="">-- All Departments --</option></select></div>
+    <div class="fg"><label class="fl">Search</label><input class="fi" id="nc_search" placeholder="🔍 Search people..." oninput="ncRenderPplBox(this.value)"></div>
+  </div>
+  <div class="fg">
+    <label class="fl">Select Person/People *</label>
+    <div class="ppl-box" id="nc_ppl"></div>
+  </div>
+  <div class="fg" id="nc_name_wrap" style="display:none">
+    <label class="fl">Group Name <span style="font-weight:400;text-transform:none;color:var(--mu)">(optional)</span></label>
+    <input class="fi" id="nc_name" placeholder="e.g. Sales Team Chat">
+  </div>
+  <div style="display:flex;gap:8px"><button class="btn btn-p" id="nc_btn" onclick="ncSubmit()">Start Chat</button><button class="btn btn-g" onclick="cModal('mNewChat')">Cancel</button></div>
 </div></div>
 
 <div class="mbg" id="mStatus"><div class="modal" style="max-width:400px">
@@ -1669,6 +1687,18 @@ function pplToggle(cb){
   var id=cb.getAttribute("data-pplid");
   if(cb.checked) MT_SELECTED[id]=true; else delete MT_SELECTED[id];
 }
+function mtSelectMyTeam(){
+  var team=myTeamIds(); // null = superadmin/admin (everyone); else {id:true,...} incl. self
+  var added=0;
+  USERS.forEach(function(u){
+    if(u.id===U.id) return;
+    if(team===null || team[u.id]){ MT_SELECTED[u.id]=true; added++; }
+  });
+  if(!added){ toast("No team members found to add.","err"); return; }
+  document.getElementById("mt_search").value="";
+  renderPplBox("");
+  toast(added+" team member(s) added.","ok");
+}
 function submitMeeting(){
   var title=document.getElementById("mt_title").value.trim();
   var date=document.getElementById("mt_date").value;
@@ -1722,17 +1752,18 @@ function cancelMeetingConfirm(id){
 }
 
 // ── CHAT / MESSAGES ─────────────────────────────────────────
-var CHAT_WITH=null, CHAT_WITH_NAME=null, CHAT_POLL=null;
+var CHAT_CONV=null, CHAT_CONV_NAME=null, CHAT_POLL=null;
+var NC_SELECTED = {}; // {userId:true} for the New Chat picker
 function renderChat(){
   loadConversations();
-  if(CHAT_WITH){ openChatWith(CHAT_WITH, CHAT_WITH_NAME); }
+  if(CHAT_CONV){ openConversation(CHAT_CONV, CHAT_CONV_NAME); }
   startChatPolling();
 }
 function startChatPolling(){
   stopChatPolling();
   CHAT_POLL=setInterval(function(){
     loadConversations();
-    if(CHAT_WITH) loadChatMessages(true);
+    if(CHAT_CONV) loadChatMessages(true);
   }, 4000);
 }
 function stopChatPolling(){
@@ -1745,48 +1776,104 @@ function loadConversations(){
     var list=r.conversations||[];
     if(!list.length){ wrap.innerHTML="<div class='empty' style='padding:24px 12px'>No chats yet — click + New to start one</div>"; return; }
     wrap.innerHTML=list.map(function(c){
-      var on=c.userId===CHAT_WITH?"on":"";
-      return "<div class='chat-item "+on+"' onclick='openChatWith(\""+esc(c.userId)+"\",\""+esc(c.name).replace(/"/g,"&quot;")+"\")'>"
-        +"<div class='av av-u' style='width:34px;height:34px;font-size:11px'>"+ini(c.name)+"</div>"
+      var on=c.conversationId===CHAT_CONV?"on":"";
+      var label = c.type==="group" ? ("👥 "+c.name+" ("+c.participantCount+")") : c.name;
+      return "<div class='chat-item "+on+"' onclick='openConversation(\""+esc(c.conversationId)+"\",\""+esc(label).replace(/"/g,"&quot;")+"\")'>"
+        +"<div class='av av-u' style='width:34px;height:34px;font-size:11px'>"+(c.type==="group"?"👥":ini(c.name))+"</div>"
         +"<div style='min-width:0;flex:1'>"
-          +"<div class='chat-item-name'>"+esc(c.name)+"</div>"
-          +"<div class='chat-item-prev'>"+esc(c.lastMsg||"")+"</div>"
+          +"<div class='chat-item-name'>"+esc(label)+"</div>"
+          +"<div class='chat-item-prev'>"+esc(c.lastMsg||"No messages yet")+"</div>"
         +"</div>"
         +(c.unread?"<span class='chat-unread'>"+c.unread+"</span>":"")
       +"</div>";
     }).join("");
   });
 }
+
+// ── New Chat picker: checkbox multi-select + department filter ──
 function openNewChatPicker(){
-  var others=USERS.filter(function(u){ return u.id!==U.id; });
-  if(!others.length){ toast("No other users to chat with.","err"); return; }
-  var names=others.map(function(u,i){ return (i+1)+". "+u.name+" ["+u.id+"]"; }).join("\n");
-  var pick=prompt("Type the employee code to start a chat with:\n\n"+names);
-  if(!pick) return;
-  var u=others.find(function(x){ return x.id.toLowerCase()===pick.trim().toLowerCase(); });
-  if(!u){ toast("Employee code not found.","err"); return; }
-  openChatWith(u.id, u.name);
+  NC_SELECTED={};
+  var deptSel=document.getElementById("nc_dept");
+  var opts="<option value=''>-- All Departments --</option>";
+  DEPTS.forEach(function(d){ opts+="<option value='"+esc(d)+"'>"+esc(d)+"</option>"; });
+  deptSel.innerHTML=opts;
+  document.getElementById("nc_search").value="";
+  document.getElementById("nc_name").value="";
+  document.getElementById("nc_name_wrap").style.display="none";
+  ncRenderPplBox("");
+  oModal("mNewChat");
 }
-function openChatWith(userId, name){
-  CHAT_WITH=userId; CHAT_WITH_NAME=name;
-  document.querySelectorAll(".chat-item").forEach(function(el){el.classList.remove("on");});
+function ncDeptChanged(){
+  var dept=document.getElementById("nc_dept").value;
+  if(dept){
+    // bulk-select everyone in this department
+    USERS.forEach(function(u){ if(u.dept===dept && u.id!==U.id) NC_SELECTED[u.id]=true; });
+  }
+  ncRenderPplBox(document.getElementById("nc_search").value);
+}
+function ncRenderPplBox(search){
+  var s=(search||"").toLowerCase();
+  var dept=document.getElementById("nc_dept").value;
+  var list=USERS.filter(function(u){
+    if(u.id===U.id) return false;
+    if(dept && u.dept!==dept) return false;
+    return !s || u.name.toLowerCase().indexOf(s)>-1 || (u.dept||"").toLowerCase().indexOf(s)>-1;
+  });
+  var box=document.getElementById("nc_ppl");
+  box.innerHTML = list.map(function(u){
+    var checked = NC_SELECTED[u.id] ? "checked" : "";
+    return "<label class='ppl-row'><input type='checkbox' data-ncid='"+u.id+"' "+checked+" onchange='ncPplToggle(this)'>"
+      +"<span class='av "+avc(u.role)+"' style='width:24px;height:24px;font-size:9px'>"+ini(u.name)+"</span>"
+      +"<span>"+esc(u.name)+" <span style='color:var(--mu)'>("+(ROLE_LABEL[u.role]||u.role)+(u.dept?" · "+esc(u.dept):"")+")</span></span></label>";
+  }).join("") || "<div style='font-size:12px;color:var(--mu);padding:8px'>No people found</div>";
+  ncUpdateNameVisibility();
+}
+function ncPplToggle(cb){
+  var id=cb.getAttribute("data-ncid");
+  if(cb.checked) NC_SELECTED[id]=true; else delete NC_SELECTED[id];
+  ncUpdateNameVisibility();
+}
+function ncUpdateNameVisibility(){
+  var n=Object.keys(NC_SELECTED).length;
+  document.getElementById("nc_name_wrap").style.display = n>1 ? "" : "none";
+}
+function ncSubmit(){
+  var ids=Object.keys(NC_SELECTED);
+  if(!ids.length){ toast("Select at least one person.","err"); return; }
+  var name=document.getElementById("nc_name").value.trim();
+  var btn=document.getElementById("nc_btn");
+  btn.disabled=true; btn.innerHTML="<span class='loader'></span>&nbsp;Starting...";
+  api("startConversation",{uid:U.id,participantIds:ids,name:name},"Starting chat...").then(function(r){
+    btn.disabled=false; btn.innerHTML="Start Chat";
+    if(r&&r.ok){
+      cModal("mNewChat");
+      var label = ids.length>1 ? (name||"Group Chat") : (USERS.find(function(u){return u.id===ids[0];})||{}).name;
+      openConversation(r.conversationId, label);
+    } else { toast((r&&r.msg)||"Could not start chat.","err"); }
+  });
+}
+
+function openConversation(conversationId, label){
+  CHAT_CONV=conversationId; CHAT_CONV_NAME=label;
   loadConversations();
   var main=document.getElementById("chatMain");
-  main.innerHTML="<div class='chat-main-h'><div class='av av-u' style='width:30px;height:30px;font-size:10px'>"+ini(name)+"</div>"+esc(name)+"</div>"
+  main.innerHTML="<div class='chat-main-h'><div class='av av-u' style='width:30px;height:30px;font-size:10px'>💬</div>"+esc(label)+"</div>"
     +"<div class='chat-msgs' id='chatMsgs'></div>"
     +"<div class='chat-input-row'><input class='fi' id='chatInput' placeholder='Type a message...' onkeydown='if(event.key===\"Enter\")sendChatMsg()'><button class='btn btn-p' onclick='sendChatMsg()'>Send</button></div>";
   loadChatMessages(false);
 }
 function loadChatMessages(silent){
-  if(!CHAT_WITH) return;
-  api("getConversation",{uid:U.id,withId:CHAT_WITH}, silent?null:"Loading...").then(function(r){
+  if(!CHAT_CONV) return;
+  api("getConversation",{uid:U.id,conversationId:CHAT_CONV}, silent?null:"Loading...").then(function(r){
     if(!r||!r.ok) return;
     var box=document.getElementById("chatMsgs");
     if(!box) return;
     var wasAtBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 30;
+    var isGroup = r.conversation && r.conversation.type==="group";
     box.innerHTML=(r.messages||[]).map(function(m){
       var t=new Date(m.time).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});
-      return "<div class='chat-bubble "+(m.mine?"mine":"theirs")+"'>"+esc(m.body)+"<span class='ct'>"+t+"</span></div>";
+      var senderLabel = (isGroup && !m.mine) ? "<b style='display:block;font-size:10px;opacity:.7;margin-bottom:2px'>"+esc(m.fromName)+"</b>" : "";
+      return "<div class='chat-bubble "+(m.mine?"mine":"theirs")+"'>"+senderLabel+esc(m.body)+"<span class='ct'>"+t+"</span></div>";
     }).join("") || "<div class='chat-empty'>No messages yet — say hello 👋</div>";
     if(wasAtBottom || !silent) box.scrollTop=box.scrollHeight;
   });
@@ -1794,9 +1881,9 @@ function loadChatMessages(silent){
 function sendChatMsg(){
   var inp=document.getElementById("chatInput");
   var body=inp.value.trim();
-  if(!body||!CHAT_WITH) return;
+  if(!body||!CHAT_CONV) return;
   inp.value="";
-  api("sendMessage",{uid:U.id,toId:CHAT_WITH,body:body}).then(function(r){
+  api("sendMessage",{uid:U.id,conversationId:CHAT_CONV,body:body}).then(function(r){
     if(r&&r.ok){ loadChatMessages(true); loadConversations(); }
     else { toast((r&&r.msg)||"Could not send.","err"); }
   });
