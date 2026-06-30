@@ -248,7 +248,35 @@ th{position:relative}
 .st{cursor:pointer}
 .st:hover{box-shadow:0 6px 20px rgba(99,102,241,.15);transform:translateY(-2px);border-color:#C7D2FE}
 
+/* ── CHAT ── */
+.chat-wrap{display:grid;grid-template-columns:280px 1fr;gap:0;height:calc(100vh - 140px);background:#fff;border:1px solid var(--bd);border-radius:12px;overflow:hidden}
+.chat-list{border-right:1px solid var(--bd);overflow-y:auto;display:flex;flex-direction:column}
+.chat-list-h{padding:14px 16px;border-bottom:1px solid var(--bd);font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+.chat-item{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;border-bottom:1px solid #F1F5F9;transition:background .15s}
+.chat-item:hover{background:#F8FAFF}
+.chat-item.on{background:#EEF2FF}
+.chat-item-name{font-size:13px;font-weight:600;color:var(--tx)}
+.chat-item-prev{font-size:11px;color:var(--mu);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px}
+.chat-unread{background:#6366F1;color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:1px 7px;margin-left:auto}
+.chat-main{display:flex;flex-direction:column;height:100%}
+.chat-main-h{padding:14px 16px;border-bottom:1px solid var(--bd);font-weight:700;font-size:14px;display:flex;align-items:center;gap:10px}
+.chat-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;background:#F8FAFF}
+.chat-bubble{max-width:65%;padding:8px 12px;border-radius:14px;font-size:13px;line-height:1.4;word-wrap:break-word}
+.chat-bubble.mine{align-self:flex-end;background:linear-gradient(135deg,#6366F1,#4F46E5);color:#fff;border-bottom-right-radius:4px}
+.chat-bubble.theirs{align-self:flex-start;background:#fff;border:1px solid var(--bd);color:var(--tx);border-bottom-left-radius:4px}
+.chat-bubble .ct{font-size:9px;opacity:.65;margin-top:3px;display:block}
+.chat-input-row{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--bd)}
+.chat-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--mu);font-size:13px}
+
+/* ── MEETINGS ── */
+.ppl-box{border:1.5px solid var(--bd);border-radius:8px;padding:8px;max-height:200px;overflow-y:auto}
+.ppl-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:12px}
+.ppl-row:hover{background:#F8FAFF}
+.meet-card{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.meet-date-badge{background:#EEF2FF;color:#4F46E5;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;text-align:center;min-width:64px}
+
 @media(max-width:768px){
+
   .sb{width:56px}
   .sb-logo h1,.sb-logo p,.sb-label,.sb-sec,.sb-uname,.sb-urole{display:none}
   .sb-btn{justify-content:center;padding:10px}
@@ -290,6 +318,8 @@ th{position:relative}
       <button class="sb-btn on" data-pg="dash"><span class="sb-icon">🏠</span><span class="sb-label">Dashboard</span></button>
       <button class="sb-btn" data-pg="mine"><span class="sb-icon">✅</span><span class="sb-label">My Tasks</span></button>
       <button class="sb-btn" data-pg="notice"><span class="sb-icon">📢</span><span class="sb-label">Notices</span></button>
+      <button class="sb-btn" data-pg="meet"><span class="sb-icon">📅</span><span class="sb-label">Meetings</span></button>
+      <button class="sb-btn" data-pg="chat"><span class="sb-icon">💬</span><span class="sb-label">Messages</span></button>
       <button class="sb-btn" data-pg="emp"><span class="sb-icon">👥</span><span class="sb-label">Employees</span></button>
       <div class="sb-sec" id="mgrSec" style="display:none">Manage</div>
       <button class="sb-btn" data-pg="assign" id="navAssign" style="display:none"><span class="sb-icon">➕</span><span class="sb-label">Assign Task</span></button>
@@ -389,15 +419,51 @@ th{position:relative}
       <div class="sc" id="pgNotice">
         <div style="max-width:700px">
           <div class="notice-compose" id="noticeCompose">
-            <div class="section-hdr">Post Announcement</div>
+            <div class="section-hdr">Post Announcement <span style="font-weight:400;text-transform:none;color:var(--mu)">(visible to your team only)</span></div>
             <div class="fg" style="margin-bottom:10px"><textarea class="fi" id="noticeInput" placeholder="Write an announcement, update or message for your team..."></textarea></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn btn-p btn-sm" onclick="postNotice()">📢 Post Announcement</button>
-              <button class="btn btn-meet btn-sm" onclick="postMeetNotice()">📹 Share Meeting Link</button>
             </div>
           </div>
           <div class="section-hdr">Team Announcements</div>
           <div id="noticeList"></div>
+        </div>
+      </div>
+
+      <!-- MEETINGS -->
+      <div class="sc" id="pgMeet">
+        <div style="display:grid;grid-template-columns:380px 1fr;gap:16px;align-items:start">
+          <div class="card card-b">
+            <div style="font-size:15px;font-weight:700;color:var(--tx);margin-bottom:14px">📅 Schedule a Meeting</div>
+            <div class="fg"><label class="fl">Meeting Title *</label><input class="fi" id="mt_title" placeholder="e.g. Weekly Sync"></div>
+            <div class="fr">
+              <div class="fg"><label class="fl">Date *</label><input class="fi" type="date" id="mt_date"></div>
+              <div class="fg"><label class="fl">Time</label><input class="fi" type="time" id="mt_time"></div>
+            </div>
+            <div class="fg">
+              <label class="fl">Participants * <span style="font-weight:400;text-transform:none;color:var(--mu)">(team or anyone else)</span></label>
+              <input class="fi" id="mt_search" placeholder="🔍 Search people..." style="margin-bottom:8px" oninput="renderPplBox(this.value)">
+              <div class="ppl-box" id="mt_ppl"></div>
+            </div>
+            <button class="btn btn-p btn-full" id="mt_btn" onclick="submitMeeting()" style="margin-top:6px">Schedule Meeting</button>
+          </div>
+          <div>
+            <div class="section-hdr">Upcoming &amp; Past Meetings</div>
+            <div id="meetList"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MESSAGES / CHAT -->
+      <div class="sc" id="pgChat">
+        <div class="chat-wrap">
+          <div class="chat-list">
+            <div class="chat-list-h">Chats <button class="btn btn-g btn-sm" onclick="openNewChatPicker()">+ New</button></div>
+            <div id="chatConvList"></div>
+          </div>
+          <div class="chat-main" id="chatMain">
+            <div class="chat-empty">Select a conversation or start a new chat</div>
+          </div>
         </div>
       </div>
 
@@ -686,8 +752,8 @@ window.addEventListener("DOMContentLoaded", function(){
   });
   // Delegate: Meet button on employee cards + stat cards + checkboxes
   document.addEventListener("click", function(e){
-    var empBtn = e.target.closest("[data-empname]");
-    if(empBtn){ openMeet(empBtn.getAttribute("data-empname")); return; }
+    var empBtn = e.target.closest("[data-empid]");
+    if(empBtn){ goToMeetingWith(empBtn.getAttribute("data-empid")); return; }
     var statCard = e.target.closest("[data-statkey]");
     if(statCard){
       var key=statCard.getAttribute("data-statkey");
@@ -870,12 +936,13 @@ function go(pg){
   document.querySelectorAll(".sb-btn[data-pg]").forEach(function(b){b.classList.remove("on");});
   var nb=document.querySelector(".sb-btn[data-pg='"+pg+"']"); if(nb) nb.classList.add("on");
   document.querySelectorAll(".sc").forEach(function(s){s.classList.remove("on");});
-  var titles={dash:"Dashboard",mine:"My Tasks",notice:"Notices & Announcements",emp:"Employees",assign:"Assign Task",bulk:"Bulk Assign",all:"All Tasks",team:"Team Stats",profile:"My Profile"};
+  var titles={dash:"Dashboard",mine:"My Tasks",notice:"Notices & Announcements",meet:"Meetings",chat:"Messages",emp:"Employees",assign:"Assign Task",bulk:"Bulk Assign",all:"All Tasks",team:"Team Stats",profile:"My Profile"};
   document.getElementById("pgtitle").textContent=titles[pg]||pg;
   var ta=document.getElementById("topAdd"); if(ta) ta.style.display=isPriv()&&pg!=="assign"?"":"none";
-  var pgMap={dash:"pgDash",mine:"pgMine",notice:"pgNotice",emp:"pgEmp",assign:"pgAssign",bulk:"pgBulk",all:"pgAll",team:"pgTeam",profile:"pgProfile"};
+  var pgMap={dash:"pgDash",mine:"pgMine",notice:"pgNotice",meet:"pgMeet",chat:"pgChat",emp:"pgEmp",assign:"pgAssign",bulk:"pgBulk",all:"pgAll",team:"pgTeam",profile:"pgProfile"};
   if(pgMap[pg]) document.getElementById(pgMap[pg]).classList.add("on");
-  var fns={dash:renderDash,mine:renderMine,notice:renderNotices,emp:renderEmployees,assign:function(){fillDeptDropdowns();},bulk:initBulk,all:renderAll,team:renderTeam,profile:renderProfile};
+  if(pg!=="chat") stopChatPolling();
+  var fns={dash:renderDash,mine:renderMine,notice:renderNotices,meet:renderMeet,chat:renderChat,emp:renderEmployees,assign:function(){fillDeptDropdowns();},bulk:initBulk,all:renderAll,team:renderTeam,profile:renderProfile};
   if(fns[pg]) fns[pg]();
 }
 
@@ -1521,7 +1588,7 @@ function renderEmpCards(members){
       +"<div class='emp-bar-wrap'><div class='emp-bar' style='width:"+taskBar+"%'></div></div>"
       +"<div style='font-size:10px;color:var(--mu);text-align:center;margin-top:4px'>"+taskBar+"% done · "+u.total+" tasks</div>"
       +"<div class='emp-actions'>"
-        +"<button class='btn btn-meet btn-sm' data-empname='"+esc(u.name)+"'>📹 Meet</button>"
+        +"<button class='btn btn-meet btn-sm' data-empid='"+esc(u.id)+"'>📹 Meet</button>"
       +"</div>"
       +"</div>";
   }).join("");
@@ -1538,19 +1605,16 @@ function renderNotices(){
 }
 function renderNoticeList(){
   var wrap=document.getElementById("noticeList");
-  if(!NOTICES.length){wrap.innerHTML="<div class='empty'>No announcements yet</div>";return;}
-  wrap.innerHTML=NOTICES.slice().reverse().map(function(n,i){
-    var idx=NOTICES.length-1-i;
-    var isAuthor=n.byId===U.id;
-    var canDel=U.role==="admin"||isAuthor;
+  if(!NOTICES.length){wrap.innerHTML="<div class='empty'>No announcements for your team yet</div>";return;}
+  wrap.innerHTML=NOTICES.slice().reverse().map(function(n){
     return "<div class='notice-card'>"
       +"<div class='notice-head'>"
-        +"<div class='av av-"+n.byRole[0]+"' style='width:34px;height:34px;font-size:12px'>"+ini(n.byName)+"</div>"
+        +"<div class='av "+avc(n.byRole)+"' style='width:34px;height:34px;font-size:12px'>"+ini(n.byName)+"</div>"
         +"<div style='flex:1;min-width:0'>"
           +"<div style='font-weight:600;color:#fff;font-size:13px'>"+esc(n.byName)+"</div>"
-          +"<div style='font-size:10px;color:var(--mu)'>"+esc(n.byRole)+" · "+esc(n.time)+"</div>"
+          +"<div style='font-size:10px;color:var(--mu)'>"+esc(ROLE_LABEL[n.byRole]||n.byRole)+" · "+esc(n.time)+"</div>"
         +"</div>"
-        +(canDel?"<button class='btn btn-d btn-sm' onclick='deleteNotice("+idx+")'>✕</button>":"")
+        +(n.canDelete?"<button class='btn btn-d btn-sm' onclick='deleteNotice(\""+esc(n.id)+"\")'>✕</button>":"")
       +"</div>"
       +"<div class='notice-body'>"+esc(n.msg).replace(/\n/g,"<br>")+"</div>"
       +(n.meetLink?"<a href='"+n.meetLink+"' target='_blank' class='btn btn-meet btn-sm' style='margin-top:8px;display:inline-flex'>📹 Join Meeting</a>":"")
@@ -1565,33 +1629,176 @@ function postNotice(){
     if(r&&r.ok){document.getElementById("noticeInput").value="";renderNotices();}
   });
 }
-function postMeetNotice(){
-  var msg=document.getElementById("noticeInput").value.trim()||"Team meeting scheduled. Please join.";
-  var link="https://meet.google.com/new";
-  api("addNotice",{uid:U.id,msg:msg,meetLink:link},"Posting...").then(function(r){
-    toast((r&&r.msg)||"Done",r&&r.ok?"ok":"err");
-    if(r&&r.ok){
-      document.getElementById("noticeInput").value="";
-      renderNotices();
-      window.open(link,"_blank");
-      toast("Meeting link shared with team!","ok");
-    }
-  });
-}
-function deleteNotice(idx){
+function deleteNotice(noticeId){
   if(!confirm("Delete this announcement?"))return;
-  api("deleteNotice",{uid:U.id,noticeIdx:idx},"Deleting...").then(function(r){
+  api("deleteNotice",{uid:U.id,noticeId:noticeId},"Deleting...").then(function(r){
     toast((r&&r.msg)||"Done",r&&r.ok?"ok":"err");
     if(r&&r.ok) renderNotices();
   });
 }
-function openMeet(name){
-  var link="https://meet.google.com/new";
-  // Post a notice with meet link
-  api("addNotice",{uid:U.id,msg:U.name+" has invited "+name+" to a meeting. Click Join to connect.",meetLink:link},"Sharing...").then(function(r){
-    window.open(link,"_blank");
-    toast("Meeting link shared in Notices!","ok");
-    if(document.getElementById("pgNotice").classList.contains("on")) renderNotices();
+
+// ── MEETINGS ─────────────────────────────────────────────────
+var MT_SELECTED = {}; // {userId: true} chosen participants
+var MT_PRESELECT = null;
+function goToMeetingWith(empId){
+  MT_PRESELECT = empId;
+  go("meet");
+}
+function renderMeet(){
+  MT_SELECTED = {};
+  if(MT_PRESELECT){ MT_SELECTED[MT_PRESELECT]=true; MT_PRESELECT=null; }
+  document.getElementById("mt_title").value="";
+  document.getElementById("mt_date").value=new Date().toISOString().slice(0,10);
+  document.getElementById("mt_time").value="";
+  document.getElementById("mt_search").value="";
+  renderPplBox("");
+  loadMeetings();
+}
+function renderPplBox(search){
+  var s=(search||"").toLowerCase();
+  var list=USERS.filter(function(u){ return u.id!==U.id && (!s || u.name.toLowerCase().indexOf(s)>-1 || (u.dept||"").toLowerCase().indexOf(s)>-1); });
+  var box=document.getElementById("mt_ppl");
+  box.innerHTML = list.map(function(u){
+    var checked = MT_SELECTED[u.id] ? "checked" : "";
+    return "<label class='ppl-row'><input type='checkbox' data-pplid='"+u.id+"' "+checked+" onchange='pplToggle(this)'>"
+      +"<span class='av "+avc(u.role)+"' style='width:24px;height:24px;font-size:9px'>"+ini(u.name)+"</span>"
+      +"<span>"+esc(u.name)+" <span style='color:var(--mu)'>("+(ROLE_LABEL[u.role]||u.role)+(u.dept?" · "+esc(u.dept):"")+")</span></span></label>";
+  }).join("") || "<div style='font-size:12px;color:var(--mu);padding:8px'>No people found</div>";
+}
+function pplToggle(cb){
+  var id=cb.getAttribute("data-pplid");
+  if(cb.checked) MT_SELECTED[id]=true; else delete MT_SELECTED[id];
+}
+function submitMeeting(){
+  var title=document.getElementById("mt_title").value.trim();
+  var date=document.getElementById("mt_date").value;
+  var time=document.getElementById("mt_time").value;
+  var participantIds=Object.keys(MT_SELECTED);
+  if(!title||!date){toast("Title and date are required.","err");return;}
+  if(!participantIds.length){toast("Select at least one participant.","err");return;}
+  var btn=document.getElementById("mt_btn");
+  btn.disabled=true; btn.innerHTML="<span class='loader'></span>&nbsp;Scheduling...";
+  api("createMeeting",{uid:U.id,title:title,date:date,time:time,participantIds:participantIds},"Scheduling...").then(function(r){
+    toast((r&&r.msg)||"Done", r&&r.ok?"ok":"err");
+    btn.disabled=false; btn.innerHTML="Schedule Meeting";
+    if(r&&r.ok){
+      showPopup("📅","Meeting Scheduled!",r.msg);
+      renderMeet();
+    }
+  });
+}
+function loadMeetings(){
+  api("getMeetings",{uid:U.id},"Loading...").then(function(r){
+    if(!r||!r.ok){toast((r&&r.msg)||"Error","err");return;}
+    var wrap=document.getElementById("meetList");
+    var list=r.meetings||[];
+    if(!list.length){wrap.innerHTML="<div class='empty'>No meetings scheduled yet</div>";return;}
+    wrap.innerHTML=list.map(function(m){
+      var names=(m.participants||[]).map(function(id){
+        var u=USERS.find(function(x){return x.id===id;});
+        return u?u.name:id;
+      }).join(", ");
+      var d=new Date(m.date+"T00:00:00");
+      var dayShort=d.toLocaleDateString("en-IN",{day:"2-digit",month:"short"});
+      return "<div class='meet-card' style='display:flex;gap:14px;align-items:flex-start'>"
+        +"<div class='meet-date-badge'>"+dayShort+(m.time?"<br>"+m.time:"")+"</div>"
+        +"<div style='flex:1;min-width:0'>"
+          +"<div style='font-weight:700;color:var(--tx);font-size:14px;margin-bottom:4px'>"+esc(m.title)+"</div>"
+          +"<div style='font-size:11px;color:var(--mu);margin-bottom:8px'>Scheduled by "+esc(m.createdByName)+" · With: "+esc(names)+"</div>"
+          +"<div style='display:flex;gap:8px;flex-wrap:wrap'>"
+            +"<a href='"+m.meetLink+"' target='_blank' class='btn btn-meet btn-sm'>📹 Join Meeting</a>"
+            +(m.canCancel?"<button class='btn btn-d btn-sm' onclick='cancelMeetingConfirm(\""+esc(m.id)+"\")'>Cancel</button>":"")
+          +"</div>"
+        +"</div></div>";
+    }).join("");
+  });
+}
+function cancelMeetingConfirm(id){
+  if(!confirm("Cancel this meeting?"))return;
+  api("cancelMeeting",{uid:U.id,meetingId:id},"Cancelling...").then(function(r){
+    toast((r&&r.msg)||"Done", r&&r.ok?"ok":"err");
+    if(r&&r.ok) loadMeetings();
+  });
+}
+
+// ── CHAT / MESSAGES ─────────────────────────────────────────
+var CHAT_WITH=null, CHAT_WITH_NAME=null, CHAT_POLL=null;
+function renderChat(){
+  loadConversations();
+  if(CHAT_WITH){ openChatWith(CHAT_WITH, CHAT_WITH_NAME); }
+  startChatPolling();
+}
+function startChatPolling(){
+  stopChatPolling();
+  CHAT_POLL=setInterval(function(){
+    loadConversations();
+    if(CHAT_WITH) loadChatMessages(true);
+  }, 4000);
+}
+function stopChatPolling(){
+  if(CHAT_POLL){ clearInterval(CHAT_POLL); CHAT_POLL=null; }
+}
+function loadConversations(){
+  api("listConversations",{uid:U.id}).then(function(r){
+    if(!r||!r.ok) return;
+    var wrap=document.getElementById("chatConvList");
+    var list=r.conversations||[];
+    if(!list.length){ wrap.innerHTML="<div class='empty' style='padding:24px 12px'>No chats yet — click + New to start one</div>"; return; }
+    wrap.innerHTML=list.map(function(c){
+      var on=c.userId===CHAT_WITH?"on":"";
+      return "<div class='chat-item "+on+"' onclick='openChatWith(\""+esc(c.userId)+"\",\""+esc(c.name).replace(/"/g,"&quot;")+"\")'>"
+        +"<div class='av av-u' style='width:34px;height:34px;font-size:11px'>"+ini(c.name)+"</div>"
+        +"<div style='min-width:0;flex:1'>"
+          +"<div class='chat-item-name'>"+esc(c.name)+"</div>"
+          +"<div class='chat-item-prev'>"+esc(c.lastMsg||"")+"</div>"
+        +"</div>"
+        +(c.unread?"<span class='chat-unread'>"+c.unread+"</span>":"")
+      +"</div>";
+    }).join("");
+  });
+}
+function openNewChatPicker(){
+  var others=USERS.filter(function(u){ return u.id!==U.id; });
+  if(!others.length){ toast("No other users to chat with.","err"); return; }
+  var names=others.map(function(u,i){ return (i+1)+". "+u.name+" ["+u.id+"]"; }).join("\n");
+  var pick=prompt("Type the employee code to start a chat with:\n\n"+names);
+  if(!pick) return;
+  var u=others.find(function(x){ return x.id.toLowerCase()===pick.trim().toLowerCase(); });
+  if(!u){ toast("Employee code not found.","err"); return; }
+  openChatWith(u.id, u.name);
+}
+function openChatWith(userId, name){
+  CHAT_WITH=userId; CHAT_WITH_NAME=name;
+  document.querySelectorAll(".chat-item").forEach(function(el){el.classList.remove("on");});
+  loadConversations();
+  var main=document.getElementById("chatMain");
+  main.innerHTML="<div class='chat-main-h'><div class='av av-u' style='width:30px;height:30px;font-size:10px'>"+ini(name)+"</div>"+esc(name)+"</div>"
+    +"<div class='chat-msgs' id='chatMsgs'></div>"
+    +"<div class='chat-input-row'><input class='fi' id='chatInput' placeholder='Type a message...' onkeydown='if(event.key===\"Enter\")sendChatMsg()'><button class='btn btn-p' onclick='sendChatMsg()'>Send</button></div>";
+  loadChatMessages(false);
+}
+function loadChatMessages(silent){
+  if(!CHAT_WITH) return;
+  api("getConversation",{uid:U.id,withId:CHAT_WITH}, silent?null:"Loading...").then(function(r){
+    if(!r||!r.ok) return;
+    var box=document.getElementById("chatMsgs");
+    if(!box) return;
+    var wasAtBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 30;
+    box.innerHTML=(r.messages||[]).map(function(m){
+      var t=new Date(m.time).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});
+      return "<div class='chat-bubble "+(m.mine?"mine":"theirs")+"'>"+esc(m.body)+"<span class='ct'>"+t+"</span></div>";
+    }).join("") || "<div class='chat-empty'>No messages yet — say hello 👋</div>";
+    if(wasAtBottom || !silent) box.scrollTop=box.scrollHeight;
+  });
+}
+function sendChatMsg(){
+  var inp=document.getElementById("chatInput");
+  var body=inp.value.trim();
+  if(!body||!CHAT_WITH) return;
+  inp.value="";
+  api("sendMessage",{uid:U.id,toId:CHAT_WITH,body:body}).then(function(r){
+    if(r&&r.ok){ loadChatMessages(true); loadConversations(); }
+    else { toast((r&&r.msg)||"Could not send.","err"); }
   });
 }
 
